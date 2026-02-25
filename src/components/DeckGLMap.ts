@@ -319,6 +319,34 @@ export class DeckGLMap {
   private rafUpdateLayers: () => void;
   private moveTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
+  // Cache for time-filtered data to avoid re-filtering on every frame
+  private filterCache = new Map<string, {
+    source: unknown;
+    timeRange: TimeRange;
+    result: unknown;
+    timestamp: number;
+  }>();
+
+  private memoize<T>(key: string, source: unknown, generator: () => T): T {
+    const cached = this.filterCache.get(key);
+    const now = Date.now();
+    // Check if source changed or time range changed or cache expired (>60s)
+    if (cached &&
+      cached.source === source &&
+      cached.timeRange === this.state.timeRange &&
+      (now - cached.timestamp < 60000)) {
+      return cached.result as T;
+    }
+    const result = generator();
+    this.filterCache.set(key, {
+      source,
+      timeRange: this.state.timeRange,
+      result,
+      timestamp: now,
+    });
+    return result;
+  }
+
   constructor(container: HTMLElement, initialState: DeckMapState) {
     this.container = container;
     this.state = initialState;
@@ -916,17 +944,30 @@ export class DeckGLMap {
     COLORS = getOverlayColors();
     const layers: (Layer | null | false)[] = [];
     const { layers: mapLayers } = this.state;
-    const filteredEarthquakes = this.filterByTime(this.earthquakes, (eq) => eq.occurredAt);
-    const filteredNaturalEvents = this.filterByTime(this.naturalEvents, (event) => event.date);
-    const filteredWeatherAlerts = this.filterByTime(this.weatherAlerts, (alert) => alert.onset);
-    const filteredOutages = this.filterByTime(this.outages, (outage) => outage.pubDate);
-    const filteredCableAdvisories = this.filterByTime(this.cableAdvisories, (advisory) => advisory.reported);
-    const filteredFlightDelays = this.filterByTime(this.flightDelays, (delay) => delay.updatedAt);
-    const filteredMilitaryFlights = this.filterByTime(this.militaryFlights, (flight) => flight.lastSeen);
-    const filteredMilitaryVessels = this.filterByTime(this.militaryVessels, (vessel) => vessel.lastAisUpdate);
-    const filteredMilitaryFlightClusters = this.filterMilitaryFlightClustersByTime(this.militaryFlightClusters);
-    const filteredMilitaryVesselClusters = this.filterMilitaryVesselClustersByTime(this.militaryVesselClusters);
-    const filteredUcdpEvents = this.filterByTime(this.ucdpEvents, (event) => event.date_start);
+
+    // Use memoized filtering to reduce overhead on every frame
+    const filteredEarthquakes = this.memoize('earthquakes', this.earthquakes, () =>
+      this.filterByTime(this.earthquakes, (eq) => eq.occurredAt));
+    const filteredNaturalEvents = this.memoize('naturalEvents', this.naturalEvents, () =>
+      this.filterByTime(this.naturalEvents, (event) => event.date));
+    const filteredWeatherAlerts = this.memoize('weatherAlerts', this.weatherAlerts, () =>
+      this.filterByTime(this.weatherAlerts, (alert) => alert.onset));
+    const filteredOutages = this.memoize('outages', this.outages, () =>
+      this.filterByTime(this.outages, (outage) => outage.pubDate));
+    const filteredCableAdvisories = this.memoize('cableAdvisories', this.cableAdvisories, () =>
+      this.filterByTime(this.cableAdvisories, (advisory) => advisory.reported));
+    const filteredFlightDelays = this.memoize('flightDelays', this.flightDelays, () =>
+      this.filterByTime(this.flightDelays, (delay) => delay.updatedAt));
+    const filteredMilitaryFlights = this.memoize('militaryFlights', this.militaryFlights, () =>
+      this.filterByTime(this.militaryFlights, (flight) => flight.lastSeen));
+    const filteredMilitaryVessels = this.memoize('militaryVessels', this.militaryVessels, () =>
+      this.filterByTime(this.militaryVessels, (vessel) => vessel.lastAisUpdate));
+    const filteredMilitaryFlightClusters = this.memoize('militaryFlightClusters', this.militaryFlightClusters, () =>
+      this.filterMilitaryFlightClustersByTime(this.militaryFlightClusters));
+    const filteredMilitaryVesselClusters = this.memoize('militaryVesselClusters', this.militaryVesselClusters, () =>
+      this.filterMilitaryVesselClustersByTime(this.militaryVesselClusters));
+    const filteredUcdpEvents = this.memoize('ucdpEvents', this.ucdpEvents, () =>
+      this.filterByTime(this.ucdpEvents, (event) => event.date_start));
 
     // Undersea cables layer
     if (mapLayers.cables) {
@@ -2255,7 +2296,8 @@ export class DeckGLMap {
   private createNewsLocationsLayer(): ScatterplotLayer[] {
     const zoom = this.maplibreMap?.getZoom() || 2;
     const alphaScale = zoom < 2.5 ? 0.4 : zoom < 4 ? 0.7 : 1.0;
-    const filteredNewsLocations = this.filterByTime(this.newsLocations, (location) => location.timestamp);
+    const filteredNewsLocations = this.memoize('newsLocations', this.newsLocations, () =>
+      this.filterByTime(this.newsLocations, (location) => location.timestamp));
     const THREAT_RGB: Record<string, [number, number, number]> = {
       critical: [239, 68, 68],
       high: [249, 115, 22],
