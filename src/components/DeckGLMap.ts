@@ -269,6 +269,20 @@ export class DeckGLMap {
   private displacementFlows: DisplacementFlow[] = [];
   private climateAnomalies: ClimateAnomaly[] = [];
 
+  // Filtered data caches to prevent re-filtering on every render frame
+  private filteredEarthquakes: Earthquake[] = [];
+  private filteredNaturalEvents: NaturalEvent[] = [];
+  private filteredWeatherAlerts: WeatherAlert[] = [];
+  private filteredOutages: InternetOutage[] = [];
+  private filteredCableAdvisories: CableAdvisory[] = [];
+  private filteredFlightDelays: AirportDelayAlert[] = [];
+  private filteredMilitaryFlights: MilitaryFlight[] = [];
+  private filteredMilitaryVessels: MilitaryVessel[] = [];
+  private filteredMilitaryFlightClusters: MilitaryFlightCluster[] = [];
+  private filteredMilitaryVesselClusters: MilitaryVesselCluster[] = [];
+  private filteredUcdpEvents: UcdpGeoEvent[] = [];
+  private filteredNewsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }> = [];
+
   // Country highlight state
   private countryGeoJsonLoaded = false;
   private countryHoverSetup = false;
@@ -916,17 +930,18 @@ export class DeckGLMap {
     COLORS = getOverlayColors();
     const layers: (Layer | null | false)[] = [];
     const { layers: mapLayers } = this.state;
-    const filteredEarthquakes = this.filterByTime(this.earthquakes, (eq) => eq.occurredAt);
-    const filteredNaturalEvents = this.filterByTime(this.naturalEvents, (event) => event.date);
-    const filteredWeatherAlerts = this.filterByTime(this.weatherAlerts, (alert) => alert.onset);
-    const filteredOutages = this.filterByTime(this.outages, (outage) => outage.pubDate);
-    const filteredCableAdvisories = this.filterByTime(this.cableAdvisories, (advisory) => advisory.reported);
-    const filteredFlightDelays = this.filterByTime(this.flightDelays, (delay) => delay.updatedAt);
-    const filteredMilitaryFlights = this.filterByTime(this.militaryFlights, (flight) => flight.lastSeen);
-    const filteredMilitaryVessels = this.filterByTime(this.militaryVessels, (vessel) => vessel.lastAisUpdate);
-    const filteredMilitaryFlightClusters = this.filterMilitaryFlightClustersByTime(this.militaryFlightClusters);
-    const filteredMilitaryVesselClusters = this.filterMilitaryVesselClustersByTime(this.militaryVesselClusters);
-    const filteredUcdpEvents = this.filterByTime(this.ucdpEvents, (event) => event.date_start);
+    // Use memoized filtered data to prevent re-filtering on every frame
+    const filteredEarthquakes = this.filteredEarthquakes;
+    const filteredNaturalEvents = this.filteredNaturalEvents;
+    const filteredWeatherAlerts = this.filteredWeatherAlerts;
+    const filteredOutages = this.filteredOutages;
+    const filteredCableAdvisories = this.filteredCableAdvisories;
+    const filteredFlightDelays = this.filteredFlightDelays;
+    const filteredMilitaryFlights = this.filteredMilitaryFlights;
+    const filteredMilitaryVessels = this.filteredMilitaryVessels;
+    const filteredMilitaryFlightClusters = this.filteredMilitaryFlightClusters;
+    const filteredMilitaryVesselClusters = this.filteredMilitaryVesselClusters;
+    const filteredUcdpEvents = this.filteredUcdpEvents;
 
     // Undersea cables layer
     if (mapLayers.cables) {
@@ -2255,7 +2270,7 @@ export class DeckGLMap {
   private createNewsLocationsLayer(): ScatterplotLayer[] {
     const zoom = this.maplibreMap?.getZoom() || 2;
     const alphaScale = zoom < 2.5 ? 0.4 : zoom < 4 ? 0.7 : 1.0;
-    const filteredNewsLocations = this.filterByTime(this.newsLocations, (location) => location.timestamp);
+    const filteredNewsLocations = this.filteredNewsLocations;
     const THREAT_RGB: Record<string, [number, number, number]> = {
       critical: [239, 68, 68],
       high: [249, 115, 22],
@@ -3158,8 +3173,24 @@ export class DeckGLMap {
     return null;
   }
 
+  private updateAllTimeFilters(): void {
+    this.filteredEarthquakes = this.filterByTime(this.earthquakes, (eq) => eq.occurredAt);
+    this.filteredNaturalEvents = this.filterByTime(this.naturalEvents, (event) => event.date);
+    this.filteredWeatherAlerts = this.filterByTime(this.weatherAlerts, (alert) => alert.onset);
+    this.filteredOutages = this.filterByTime(this.outages, (outage) => outage.pubDate);
+    this.filteredCableAdvisories = this.filterByTime(this.cableAdvisories, (advisory) => advisory.reported);
+    this.filteredFlightDelays = this.filterByTime(this.flightDelays, (delay) => delay.updatedAt);
+    this.filteredMilitaryFlights = this.filterByTime(this.militaryFlights, (flight) => flight.lastSeen);
+    this.filteredMilitaryVessels = this.filterByTime(this.militaryVessels, (vessel) => vessel.lastAisUpdate);
+    this.filteredMilitaryFlightClusters = this.filterMilitaryFlightClustersByTime(this.militaryFlightClusters);
+    this.filteredMilitaryVesselClusters = this.filterMilitaryVesselClustersByTime(this.militaryVesselClusters);
+    this.filteredUcdpEvents = this.filterByTime(this.ucdpEvents, (event) => event.date_start);
+    this.filteredNewsLocations = this.filterByTime(this.newsLocations, (location) => location.timestamp);
+  }
+
   public setTimeRange(range: TimeRange): void {
     this.state.timeRange = range;
+    this.updateAllTimeFilters();
     this.rebuildProtestSupercluster();
     this.onTimeRangeChange?.(range);
     this.updateTimeSliderButtons();
@@ -3265,11 +3296,13 @@ export class DeckGLMap {
   // Data setters - all use render() for debouncing
   public setEarthquakes(earthquakes: Earthquake[]): void {
     this.earthquakes = earthquakes;
+    this.filteredEarthquakes = this.filterByTime(this.earthquakes, (eq) => eq.occurredAt);
     this.render();
   }
 
   public setWeatherAlerts(alerts: WeatherAlert[]): void {
     this.weatherAlerts = alerts;
+    this.filteredWeatherAlerts = this.filterByTime(this.weatherAlerts, (alert) => alert.onset);
     const withCentroid = alerts.filter(a => a.centroid && a.centroid.length === 2).length;
     console.log(`[DeckGLMap] Weather alerts: ${alerts.length} total, ${withCentroid} with coordinates`);
     this.render();
@@ -3277,6 +3310,7 @@ export class DeckGLMap {
 
   public setOutages(outages: InternetOutage[]): void {
     this.outages = outages;
+    this.filteredOutages = this.filterByTime(this.outages, (outage) => outage.pubDate);
     this.render();
   }
 
@@ -3293,6 +3327,7 @@ export class DeckGLMap {
 
   public setCableActivity(advisories: CableAdvisory[], repairShips: RepairShip[]): void {
     this.cableAdvisories = advisories;
+    this.filteredCableAdvisories = this.filterByTime(this.cableAdvisories, (advisory) => advisory.reported);
     this.repairShips = repairShips;
     this.render();
   }
@@ -3312,23 +3347,29 @@ export class DeckGLMap {
 
   public setFlightDelays(delays: AirportDelayAlert[]): void {
     this.flightDelays = delays;
+    this.filteredFlightDelays = this.filterByTime(this.flightDelays, (delay) => delay.updatedAt);
     this.render();
   }
 
   public setMilitaryFlights(flights: MilitaryFlight[], clusters: MilitaryFlightCluster[] = []): void {
     this.militaryFlights = flights;
+    this.filteredMilitaryFlights = this.filterByTime(this.militaryFlights, (flight) => flight.lastSeen);
     this.militaryFlightClusters = clusters;
+    this.filteredMilitaryFlightClusters = this.filterMilitaryFlightClustersByTime(this.militaryFlightClusters);
     this.render();
   }
 
   public setMilitaryVessels(vessels: MilitaryVessel[], clusters: MilitaryVesselCluster[] = []): void {
     this.militaryVessels = vessels;
+    this.filteredMilitaryVessels = this.filterByTime(this.militaryVessels, (vessel) => vessel.lastAisUpdate);
     this.militaryVesselClusters = clusters;
+    this.filteredMilitaryVesselClusters = this.filterMilitaryVesselClustersByTime(this.militaryVesselClusters);
     this.render();
   }
 
   public setNaturalEvents(events: NaturalEvent[]): void {
     this.naturalEvents = events;
+    this.filteredNaturalEvents = this.filterByTime(this.naturalEvents, (event) => event.date);
     this.render();
   }
 
@@ -3345,6 +3386,7 @@ export class DeckGLMap {
 
   public setUcdpEvents(events: UcdpGeoEvent[]): void {
     this.ucdpEvents = events;
+    this.filteredUcdpEvents = this.filterByTime(this.ucdpEvents, (event) => event.date_start);
     this.render();
   }
 
@@ -3369,6 +3411,7 @@ export class DeckGLMap {
       if (now - ts > 60_000) this.newsLocationFirstSeen.delete(key);
     }
     this.newsLocations = data;
+    this.filteredNewsLocations = this.filterByTime(this.newsLocations, (location) => location.timestamp);
     this.render();
 
     this.syncPulseAnimation(now);
