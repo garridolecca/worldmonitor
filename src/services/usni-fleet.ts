@@ -96,22 +96,41 @@ export function mergeUSNIWithAIS(
   const merged: MilitaryVessel[] = aisVessels.map((vessel) => ({ ...vessel }));
   const matchedHulls = new Set<string>();
 
-  // Pass 1: Enrich AIS vessels with USNI data
+  // Optimize data merging operations by replacing nested loops with Map-indexed lookups (O(N*M) -> O(N+M))
+  const usniByHull = new Map<string, USNIVesselEntry>();
+  const unmatchedUsniVessels: { vessel: USNIVesselEntry; name: string }[] = [];
+
+  for (const usniVessel of usniReport.vessels) {
+    const hull = normalizeHull(usniVessel.hullNumber);
+    if (hull) {
+      usniByHull.set(hull, usniVessel);
+    }
+  }
+
+  // Pass 1: Enrich AIS vessels with USNI data by hull number
   for (const vessel of merged) {
     if (!vessel.hullNumber) continue;
     const aisHull = normalizeHull(vessel.hullNumber);
 
-    for (const usniVessel of usniReport.vessels) {
-      if (normalizeHull(usniVessel.hullNumber) === aisHull) {
-        vessel.usniRegion = usniVessel.region;
-        vessel.usniDeploymentStatus = usniVessel.deploymentStatus;
-        vessel.usniStrikeGroup = usniVessel.strikeGroup;
-        vessel.usniActivityDescription = usniVessel.activityDescription;
-        vessel.usniArticleUrl = usniVessel.usniArticleUrl;
-        vessel.usniArticleDate = usniVessel.usniArticleDate;
-        matchedHulls.add(normalizeHull(usniVessel.hullNumber));
-        break;
-      }
+    const usniVessel = usniByHull.get(aisHull);
+    if (usniVessel) {
+      vessel.usniRegion = usniVessel.region;
+      vessel.usniDeploymentStatus = usniVessel.deploymentStatus;
+      vessel.usniStrikeGroup = usniVessel.strikeGroup;
+      vessel.usniActivityDescription = usniVessel.activityDescription;
+      vessel.usniArticleUrl = usniVessel.usniArticleUrl;
+      vessel.usniArticleDate = usniVessel.usniArticleDate;
+      matchedHulls.add(aisHull);
+    }
+  }
+
+  // Build remaining list for name matching
+  for (const usniVessel of usniReport.vessels) {
+    if (!matchedHulls.has(normalizeHull(usniVessel.hullNumber))) {
+      unmatchedUsniVessels.push({
+        vessel: usniVessel,
+        name: usniVessel.name.replace(/^USS\s+/i, '').replace(/^USNS\s+/i, '').toUpperCase().trim(),
+      });
     }
   }
 
@@ -121,9 +140,8 @@ export function mergeUSNIWithAIS(
     const aisName = vessel.name.replace(/^USS\s+/i, '').toUpperCase().trim();
     if (!aisName) continue;
 
-    for (const usniVessel of usniReport.vessels) {
-      if (matchedHulls.has(normalizeHull(usniVessel.hullNumber))) continue;
-      const usniName = usniVessel.name.replace(/^USS\s+/i, '').replace(/^USNS\s+/i, '').toUpperCase().trim();
+    for (let i = 0; i < unmatchedUsniVessels.length; i++) {
+      const { vessel: usniVessel, name: usniName } = unmatchedUsniVessels[i]!;
       if (aisName === usniName || aisName.includes(usniName) || usniName.includes(aisName)) {
         vessel.usniRegion = usniVessel.region;
         vessel.usniDeploymentStatus = usniVessel.deploymentStatus;
@@ -132,6 +150,8 @@ export function mergeUSNIWithAIS(
         vessel.usniArticleUrl = usniVessel.usniArticleUrl;
         vessel.usniArticleDate = usniVessel.usniArticleDate;
         matchedHulls.add(normalizeHull(usniVessel.hullNumber));
+        // Remove from unmatched list to prevent duplicate matching
+        unmatchedUsniVessels.splice(i, 1);
         break;
       }
     }
