@@ -179,9 +179,21 @@ export function tokenize(text: string): Set<string> {
 
 export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 && b.size === 0) return 0;
-  const intersection = new Set([...a].filter(x => b.has(x)));
-  const union = new Set([...a, ...b]);
-  return intersection.size / union.size;
+
+  // O(1) memory allocation - iterate over the smaller set to find intersection
+  let intersectionSize = 0;
+  const [smaller, larger] = a.size < b.size ? [a, b] : [b, a];
+
+  for (const item of smaller) {
+    if (larger.has(item)) {
+      intersectionSize++;
+    }
+  }
+
+  // Use inclusion-exclusion principle: |A ∪ B| = |A| + |B| - |A ∩ B|
+  const unionSize = a.size + b.size - intersectionSize;
+
+  return unionSize === 0 ? 0 : intersectionSize / unionSize;
 }
 
 export function includesKeyword(text: string, keywords: string[]): boolean {
