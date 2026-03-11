@@ -1,0 +1,3 @@
+## 2024-05-24 - Jaccard Similarity Optimization
+**Learning:** `jaccardSimilarity` in `src/utils/analysis-constants.ts` creates two new Sets inside a hot loop in `clusterNewsCore` (`src/services/analysis-core.ts`). This is an O(N^2) path. Creating intermediate sets inside the tight loop causes massive garbage collection overhead.
+**Action:** Optimize `jaccardSimilarity` by using manual iteration to count intersection and calculate union mathematically (sizeA + sizeB - intersection) instead of allocating new sets. This achieves O(1) memory allocation.
