@@ -528,31 +528,33 @@ export class DeckGLMap {
   }
 
   private filterMilitaryFlightClustersByTime(clusters: MilitaryFlightCluster[]): MilitaryFlightCluster[] {
-    return clusters
-      .map((cluster) => {
-        const flights = this.filterByTime(cluster.flights ?? [], (flight) => flight.lastSeen);
-        if (flights.length === 0) return null;
-        return {
+    const result: MilitaryFlightCluster[] = [];
+    for (const cluster of clusters) {
+      const flights = this.filterByTime(cluster.flights ?? [], (flight) => flight.lastSeen);
+      if (flights.length > 0) {
+        result.push({
           ...cluster,
           flights,
           flightCount: flights.length,
-        };
-      })
-      .filter((cluster): cluster is MilitaryFlightCluster => cluster !== null);
+        });
+      }
+    }
+    return result;
   }
 
   private filterMilitaryVesselClustersByTime(clusters: MilitaryVesselCluster[]): MilitaryVesselCluster[] {
-    return clusters
-      .map((cluster) => {
-        const vessels = this.filterByTime(cluster.vessels ?? [], (vessel) => vessel.lastAisUpdate);
-        if (vessels.length === 0) return null;
-        return {
+    const result: MilitaryVesselCluster[] = [];
+    for (const cluster of clusters) {
+      const vessels = this.filterByTime(cluster.vessels ?? [], (vessel) => vessel.lastAisUpdate);
+      if (vessels.length > 0) {
+        result.push({
           ...cluster,
           vessels,
           vesselCount: vessels.length,
-        };
-      })
-      .filter((cluster): cluster is MilitaryVesselCluster => cluster !== null);
+        });
+      }
+    }
+    return result;
   }
 
   private rebuildProtestSupercluster(source: SocialUnrestEvent[] = this.getFilteredProtests()): void {
