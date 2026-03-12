@@ -337,12 +337,17 @@ export function detectPipelineFlowDrops(
   const signals: CorrelationSignalCore[] = [];
 
   for (const event of events) {
-    const titles = [
-      event.primaryTitle,
-      ...(event.allItems?.map(item => item.title) ?? []),
-    ]
-      .map(title => title.toLowerCase())
-      .filter(Boolean);
+    const titles: string[] = [];
+    if (event.primaryTitle) {
+      titles.push(event.primaryTitle.toLowerCase());
+    }
+    if (event.allItems) {
+      for (const item of event.allItems) {
+        if (item.title) {
+          titles.push(item.title.toLowerCase());
+        }
+      }
+    }
 
     const hasPipeline = titles.some(title => includesKeyword(title, PIPELINE_KEYWORDS));
     const hasFlowDrop = titles.some(title => includesKeyword(title, FLOW_DROP_KEYWORDS));
@@ -383,32 +388,36 @@ export function detectConvergence(
   for (const event of events) {
     if (!event.allItems || event.allItems.length < 3) continue;
 
-    const recentItems = event.allItems.filter(
-      item => now - item.pubDate.getTime() < WINDOW_MS
-    );
-    if (recentItems.length < 3) continue;
-
+    let recentItemsCount = 0;
     const sourceTypes = new Set<SourceType>();
-    for (const item of recentItems) {
-      const type = getSourceType(item.source);
-      sourceTypes.add(type);
+
+    for (const item of event.allItems) {
+      if (now - item.pubDate.getTime() < WINDOW_MS) {
+        recentItemsCount++;
+        const type = getSourceType(item.source);
+        if (type !== 'other') {
+          sourceTypes.add(type);
+        }
+      }
     }
 
+    if (recentItemsCount < 3) continue;
+
     if (sourceTypes.size >= 3) {
-      const types = Array.from(sourceTypes).filter(t => t !== 'other');
+      const types = Array.from(sourceTypes);
       const dedupeKey = generateDedupeKey('convergence', event.id, sourceTypes.size);
 
-      if (!isRecentDuplicate(dedupeKey) && types.length >= 3) {
+      if (!isRecentDuplicate(dedupeKey)) {
         markSignalSeen(dedupeKey);
         signals.push({
           id: generateSignalId(),
           type: 'convergence',
           title: 'Source Convergence',
-          description: `"${event.primaryTitle.slice(0, 50)}..." reported by ${types.join(', ')} (${recentItems.length} sources in 30m)`,
+          description: `"${event.primaryTitle.slice(0, 50)}..." reported by ${types.join(', ')} (${recentItemsCount} sources in 30m)`,
           confidence: Math.min(0.95, 0.6 + sourceTypes.size * 0.1),
           timestamp: new Date(),
           data: {
-            newsVelocity: recentItems.length,
+            newsVelocity: recentItemsCount,
             relatedTopics: types,
           },
         });
