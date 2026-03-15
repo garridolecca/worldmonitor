@@ -1,0 +1,3 @@
+## 2024-05-18 - [Optimize Jaccard Similarity memory allocation in hot path]
+**Learning:** The `clusterNewsCore` function executes O(N²) clustering logic, and `jaccardSimilarity` was a major bottleneck because it instantiated two intermediate Arrays and a new Set (`[...a].filter()`, `new Set([...a, ...b])`) for every pairwise comparison, creating excessive GC pressure.
+**Action:** In hot loops, always avoid `[...iterator]` or array method chaining. Compute Set intersections manually by iterating over the smaller set. Use the inclusion-exclusion principle (`|A ∪ B| = |A| + |B| - |A ∩ B|`) instead of explicitly instantiating unions.
