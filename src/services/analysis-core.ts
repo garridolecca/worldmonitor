@@ -615,9 +615,16 @@ export function analyzeCorrelationsCore(
         });
       }
     } else {
-      const oldRelatedNews = Array.from(newsTopics.entries())
-        .filter(([k]) => market.name.toLowerCase().includes(k) || k.includes(market.symbol.toLowerCase()))
-        .reduce((sum, [, v]) => sum + v, 0);
+      // Optimization: Avoid intermediate allocations from Array.from().filter().reduce()
+      // Cache string operations outside the loop for O(N) evaluation
+      let oldRelatedNews = 0;
+      const mNameLower = market.name.toLowerCase();
+      const mSymbolLower = market.symbol.toLowerCase();
+      for (const [k, v] of newsTopics.entries()) {
+        if (mNameLower.includes(k) || k.includes(mSymbolLower)) {
+          oldRelatedNews += v;
+        }
+      }
 
       const dedupeKey = generateDedupeKey('silent_divergence', market.symbol, change);
       if (oldRelatedNews < 2 && !isRecentDuplicate(dedupeKey)) {
@@ -648,9 +655,16 @@ export function analyzeCorrelationsCore(
 
     const change = market.change ?? 0;
     if (change >= FLOW_PRICE_THRESHOLD) {
-      const relatedNews = Array.from(newsTopics.entries())
-        .filter(([k]) => market.name.toLowerCase().includes(k) || k.includes(market.symbol.toLowerCase()))
-        .reduce((sum, [, v]) => sum + v, 0);
+      // Optimization: Avoid intermediate allocations from Array.from().filter().reduce()
+      // Cache string operations outside the loop for O(N) evaluation
+      let relatedNews = 0;
+      const mNameLower = market.name.toLowerCase();
+      const mSymbolLower = market.symbol.toLowerCase();
+      for (const [k, v] of newsTopics.entries()) {
+        if (mNameLower.includes(k) || k.includes(mSymbolLower)) {
+          relatedNews += v;
+        }
+      }
 
       const dedupeKey = generateDedupeKey('flow_price_divergence', market.symbol, change);
       if (relatedNews < 2 && pipelineFlowMentions === 0 && !isRecentDuplicate(dedupeKey)) {
