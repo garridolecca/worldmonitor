@@ -1,0 +1,4 @@
+## 2025-03-05 - Avoid intermediate Sets/Arrays in hot-path Jaccard Similarity calculations
+
+**Learning:** `jaccardSimilarity` was calculating intersections and unions by creating new Arrays and Sets using spread syntax (`[...a].filter`, `[...a, ...b]`). Because this utility runs inside the $O(N^2)$ `clusterNewsCore` loop, creating two Sets and one Array per evaluation triggered massive garbage collection overhead and intermediate memory allocations in V8, dragging down the map's performance and clustering capabilities.
+**Action:** Instead of building a new `intersection` Set and `union` Set, always compute only sizes. Loop over the *smaller* Set (`if (a.size < b.size)`) to count matching items, compute `intersectionSize`, and determine `unionSize` arithmetically (`a.size + b.size - intersectionSize`). This results in exactly $O(1)$ memory allocation and operates dramatically faster without waking the garbage collector during map renders.
