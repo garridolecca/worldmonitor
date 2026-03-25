@@ -179,9 +179,26 @@ export function tokenize(text: string): Set<string> {
 
 export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 && b.size === 0) return 0;
-  const intersection = new Set([...a].filter(x => b.has(x)));
-  const union = new Set([...a, ...b]);
-  return intersection.size / union.size;
+
+  // Performance optimization: Avoid allocating intermediate Arrays and Sets.
+  // This function is called O(N^2) times in the `clusterNewsCore` hot loop.
+  // Creating [...a] and new Set() for every comparison causes massive garbage collection overhead.
+
+  let intersectionSize = 0;
+  // Iterate over the smaller set to find intersections (O(min(|A|, |B|)))
+  if (a.size < b.size) {
+    for (const item of a) {
+      if (b.has(item)) intersectionSize++;
+    }
+  } else {
+    for (const item of b) {
+      if (a.has(item)) intersectionSize++;
+    }
+  }
+
+  // Inclusion-Exclusion Principle: |A ∪ B| = |A| + |B| - |A ∩ B|
+  const unionSize = a.size + b.size - intersectionSize;
+  return intersectionSize / unionSize;
 }
 
 export function includesKeyword(text: string, keywords: string[]): boolean {
