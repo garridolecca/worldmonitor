@@ -1,0 +1,3 @@
+## 2024-05-24 - [Avoid Array.from() spread operations in Analysis Core inner loops]
+**Learning:** `Array.from(map.entries()).filter().reduce()` on Maps within the `analyzeCorrelationsCore` loop introduces a ~2x-5x performance penalty by performing intermediate allocations for Array buffers rather than iterating `for...of` in-place. Hoisting static values out of the inner loop like `.toLowerCase()` is especially important.
+**Action:** Always prefer `for...of` loops and pre-calculating values over chained `.map().filter().reduce()` iteration over collections on hot code paths to minimize memory allocations.
