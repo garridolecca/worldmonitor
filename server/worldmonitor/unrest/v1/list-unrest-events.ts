@@ -53,6 +53,15 @@ async function fetchAcledProtests(req: ListUnrestEventsRequest): Promise<UnrestE
       })
       .map((e): UnrestEvent => {
         const fatalities = parseInt(e.fatalities || '', 10) || 0;
+        // Performance: Replace chained .map().filter() with for...of loop to reduce intermediate allocations
+        const tags: string[] = [];
+        if (e.tags) {
+          for (const t of e.tags.split(';')) {
+            const trimmed = t.trim();
+            if (trimmed) tags.push(trimmed);
+          }
+        }
+
         return {
           id: `acled-${e.event_id_cnty}`,
           title: e.notes?.slice(0, 200) || `${e.sub_event_type} in ${e.location}`,
@@ -70,7 +79,7 @@ async function fetchAcledProtests(req: ListUnrestEventsRequest): Promise<UnrestE
           fatalities,
           sources: [e.source].filter(Boolean) as string[],
           sourceType: 'UNREST_SOURCE_TYPE_ACLED' as UnrestSourceType,
-          tags: e.tags?.split(';').map((t: string) => t.trim()).filter(Boolean) ?? [],
+          tags,
           actors: [e.actor1, e.actor2].filter(Boolean) as string[],
           confidence: 'CONFIDENCE_LEVEL_HIGH' as ConfidenceLevel,
         };

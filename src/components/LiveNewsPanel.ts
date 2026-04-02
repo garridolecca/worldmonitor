@@ -675,11 +675,22 @@ export class LiveNewsPanel extends Panel {
 
   private applyChannelOrderFromDom(): void {
     if (!this.channelSwitcher) return;
-    const ids = Array.from(this.channelSwitcher.querySelectorAll<HTMLElement>('.live-channel-btn'))
-      .map((el) => el.dataset.channelId)
-      .filter((id): id is string => !!id);
     const orderMap = new Map(this.channels.map((c) => [c.id, c]));
-    this.channels = ids.map((id) => orderMap.get(id)).filter((c): c is LiveChannel => !!c);
+
+    // Performance: Replace chained .map().filter() with a for...of loop to reduce intermediate allocations
+    const newChannels: LiveChannel[] = [];
+    const btnElements = this.channelSwitcher.querySelectorAll<HTMLElement>('.live-channel-btn');
+    for (const el of btnElements) {
+      const id = el.dataset.channelId;
+      if (id) {
+        const channel = orderMap.get(id);
+        if (channel) {
+          newChannels.push(channel);
+        }
+      }
+    }
+
+    this.channels = newChannels;
     this.saveChannels();
   }
 

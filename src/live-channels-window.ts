@@ -51,9 +51,21 @@ export function initLiveChannelsWindow(containerEl?: HTMLElement): void {
   /** Reads current row order from DOM and persists to storage. */
   function applyOrderFromDom(listEl: HTMLElement): void {
     const rows = listEl.querySelectorAll<HTMLElement>('.live-news-manage-row');
-    const ids = Array.from(rows).map((el) => el.dataset.channelId).filter((id): id is string => !!id);
     const map = new Map(channels.map((c) => [c.id, c]));
-    channels = ids.map((id) => map.get(id)).filter((c): c is LiveChannel => !!c);
+
+    // Performance: Replace chained .map().filter() with a for...of loop to reduce intermediate allocations
+    const newChannels: LiveChannel[] = [];
+    for (const row of rows) {
+      const id = row.dataset.channelId;
+      if (id) {
+        const channel = map.get(id);
+        if (channel) {
+          newChannels.push(channel);
+        }
+      }
+    }
+
+    channels = newChannels;
     saveChannelsToStorage(channels);
   }
 
