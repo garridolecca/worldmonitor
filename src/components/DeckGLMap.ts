@@ -727,7 +727,12 @@ export class DeckGLMap {
         if (f.properties.cluster) {
           const props = f.properties as Record<string, unknown>;
           const leaves = this.protestSC!.getLeaves(f.properties.cluster_id!, DeckGLMap.MAX_CLUSTER_LEAVES);
-          const items = leaves.map(l => this.protestSuperclusterSource[l.properties.index]).filter((x): x is SocialUnrestEvent => !!x);
+          // Performance: Replace chained .map().filter() with for...of loop to reduce intermediate allocations
+          const items: SocialUnrestEvent[] = [];
+          for (const l of leaves) {
+            const item = this.protestSuperclusterSource[l.properties.index];
+            if (item) items.push(item);
+          }
           const maxSeverityRank = Number(props.maxSeverityRank ?? 0);
           const maxSev = maxSeverityRank >= 2 ? 'high' : maxSeverityRank === 1 ? 'medium' : 'low';
           const riotCount = Number(props.riotCount ?? 0);
@@ -782,7 +787,12 @@ export class DeckGLMap {
         if (f.properties.cluster) {
           const props = f.properties as Record<string, unknown>;
           const leaves = this.techHQSC!.getLeaves(f.properties.cluster_id!, DeckGLMap.MAX_CLUSTER_LEAVES);
-          const items = leaves.map(l => TECH_HQS[l.properties.index]).filter(Boolean) as typeof TECH_HQS;
+          // Performance: Replace chained .map().filter() with for...of loop to reduce intermediate allocations
+          const items: typeof TECH_HQS = [];
+          for (const l of leaves) {
+            const item = TECH_HQS[l.properties.index];
+            if (item) items.push(item);
+          }
           const faangCount = Number(props.faangCount ?? 0);
           const unicornCount = Number(props.unicornCount ?? 0);
           const publicCount = Number(props.publicCount ?? 0);
@@ -827,7 +837,12 @@ export class DeckGLMap {
         if (f.properties.cluster) {
           const props = f.properties as Record<string, unknown>;
           const leaves = this.techEventSC!.getLeaves(f.properties.cluster_id!, DeckGLMap.MAX_CLUSTER_LEAVES);
-          const items = leaves.map(l => this.techEvents[l.properties.index]).filter((x): x is TechEventMarker => !!x);
+          // Performance: Replace chained .map().filter() with for...of loop to reduce intermediate allocations
+          const items: TechEventMarker[] = [];
+          for (const l of leaves) {
+            const item = this.techEvents[l.properties.index];
+            if (item) items.push(item);
+          }
           const clusterCount = Number(f.properties.point_count ?? items.length);
           const soonestDaysUntil = Number(props.soonestDaysUntil ?? Number.MAX_SAFE_INTEGER);
           const soonCount = Number(props.soonCount ?? 0);
@@ -863,7 +878,12 @@ export class DeckGLMap {
         if (f.properties.cluster) {
           const props = f.properties as Record<string, unknown>;
           const leaves = this.datacenterSC!.getLeaves(f.properties.cluster_id!, DeckGLMap.MAX_CLUSTER_LEAVES);
-          const items = leaves.map(l => activeDCs[l.properties.index]).filter((x): x is AIDataCenter => !!x);
+          // Performance: Replace chained .map().filter() with for...of loop to reduce intermediate allocations
+          const items: AIDataCenter[] = [];
+          for (const l of leaves) {
+            const item = activeDCs[l.properties.index];
+            if (item) items.push(item);
+          }
           const clusterCount = Number(f.properties.point_count ?? items.length);
           const existingCount = Number(props.existingCount ?? 0);
           const plannedCount = Number(props.plannedCount ?? 0);

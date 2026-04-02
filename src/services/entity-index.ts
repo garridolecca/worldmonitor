@@ -84,7 +84,13 @@ export function findRelatedEntities(entityId: string): EntityEntry[] {
   const index = getEntityIndex();
   const entity = index.byId.get(entityId);
   if (!entity?.related) return [];
-  return entity.related.map(id => index.byId.get(id)).filter((e): e is EntityEntry => !!e);
+  // Performance: Replace chained .map().filter() with for...of loop to reduce intermediate allocations
+  const relatedEntities: EntityEntry[] = [];
+  for (const id of entity.related) {
+    const relatedEntity = index.byId.get(id);
+    if (relatedEntity) relatedEntities.push(relatedEntity);
+  }
+  return relatedEntities;
 }
 
 export interface EntityMatch {
