@@ -14,6 +14,15 @@ import {
 } from './wingbits';
 import { isFeatureAvailable } from './runtime-config';
 
+// Extended list of countries with recognizable military patterns
+const MILITARY_COUNTRIES = new Set([
+  'United States', 'United Kingdom', 'France', 'Germany', 'Israel',
+  'Turkey', 'Saudi Arabia', 'United Arab Emirates', 'Qatar', 'Kuwait',
+  'Japan', 'South Korea', 'Australia', 'Canada', 'Italy', 'Spain',
+  'Netherlands', 'Poland', 'Greece', 'Norway', 'Sweden', 'India',
+  'Pakistan', 'Egypt', 'Singapore', 'Taiwan'
+]);
+
 // OpenSky API path — route through Vercel so Railway secret never reaches the browser.
 const OPENSKY_PROXY_URL = '/api/opensky';
 const wsRelayUrl = import.meta.env.VITE_WS_RELAY_URL || '';
@@ -160,16 +169,7 @@ function isMilitaryFlight(state: OpenSkyStateArray): boolean {
     return true;
   }
 
-  // Extended list of countries with recognizable military patterns
-  const militaryCountries = [
-    'United States', 'United Kingdom', 'France', 'Germany', 'Israel',
-    'Turkey', 'Saudi Arabia', 'United Arab Emirates', 'Qatar', 'Kuwait',
-    'Japan', 'South Korea', 'Australia', 'Canada', 'Italy', 'Spain',
-    'Netherlands', 'Poland', 'Greece', 'Norway', 'Sweden', 'India',
-    'Pakistan', 'Egypt', 'Singapore', 'Taiwan'
-  ];
-
-  if (militaryCountries.includes(originCountry)) {
+  if (MILITARY_COUNTRIES.has(originCountry)) {
     // Check for expanded military callsign patterns
     const militaryPattern = /^(RCH|REACH|DUKE|KING|GOLD|NAVY|ARMY|MARINE|NATO|RAF|GAF|FAF|IAF|THK|TUR|RSAF|UAF|JPN|JASDF|ROKAF|KAF|RAAF|CANFORCE|CFC|AME|PLF|HAF|EGY|PAF|FORTE|HAWK|REAPER|COBRA|RIVET|OLIVE|SNTRY|DRAGN|BONE|DEATH|DOOM|TRIDENT|ASCOT|CNV|HMX|DUSTOFF|EVAC|MOOSE|HERKY)/i.test(callsign);
     if (callsign && militaryPattern) {
