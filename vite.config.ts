@@ -156,9 +156,10 @@ function htmlVariantPlugin(): Plugin {
   };
 }
 
+const ALLOWED_ORDER = new Set(['volume', 'liquidity', 'startDate', 'endDate', 'spread']);
+
 function polymarketPlugin(): Plugin {
   const GAMMA_BASE = 'https://gamma-api.polymarket.com';
-  const ALLOWED_ORDER = ['volume', 'liquidity', 'startDate', 'endDate', 'spread'];
 
   return {
     name: 'polymarket-dev',
@@ -168,9 +169,12 @@ function polymarketPlugin(): Plugin {
 
         const url = new URL(req.url, 'http://localhost');
         const endpoint = url.searchParams.get('endpoint') || 'markets';
-        const closed = ['true', 'false'].includes(url.searchParams.get('closed') ?? '') ? url.searchParams.get('closed') : 'false';
-        const order = ALLOWED_ORDER.includes(url.searchParams.get('order') ?? '') ? url.searchParams.get('order') : 'volume';
-        const ascending = ['true', 'false'].includes(url.searchParams.get('ascending') ?? '') ? url.searchParams.get('ascending') : 'false';
+        const closedParam = url.searchParams.get('closed');
+        const closed = (closedParam === 'true' || closedParam === 'false') ? closedParam : 'false';
+        const orderParam = url.searchParams.get('order') ?? '';
+        const order = ALLOWED_ORDER.has(orderParam) ? orderParam : 'volume';
+        const ascendingParam = url.searchParams.get('ascending');
+        const ascending = (ascendingParam === 'true' || ascendingParam === 'false') ? ascendingParam : 'false';
         const rawLimit = parseInt(url.searchParams.get('limit') ?? '', 10);
         const limit = isNaN(rawLimit) ? 50 : Math.max(1, Math.min(100, rawLimit));
 
