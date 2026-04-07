@@ -177,11 +177,28 @@ export function tokenize(text: string): Set<string> {
   return new Set(words);
 }
 
+/**
+ * Computes Jaccard similarity between two sets with O(1) memory allocation.
+ * Optimizes performance by counting intersections instead of allocating
+ * intermediate Sets and Arrays, and calculates union size using the
+ * inclusion-exclusion principle.
+ */
 export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 && b.size === 0) return 0;
-  const intersection = new Set([...a].filter(x => b.has(x)));
-  const union = new Set([...a, ...b]);
-  return intersection.size / union.size;
+
+  let intersectionSize = 0;
+  if (a.size < b.size) {
+    for (const item of a) {
+      if (b.has(item)) intersectionSize++;
+    }
+  } else {
+    for (const item of b) {
+      if (a.has(item)) intersectionSize++;
+    }
+  }
+
+  const unionSize = a.size + b.size - intersectionSize;
+  return intersectionSize / unionSize;
 }
 
 export function includesKeyword(text: string, keywords: string[]): boolean {
