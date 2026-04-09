@@ -192,10 +192,26 @@ export function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// ⚡ Bolt: Cache regex instances to prevent recompilation inside nested loops (O(1) lookup vs parsing overhead)
+// Bounded to prevent memory leaks from arbitrary string inputs
+const MAX_REGEX_CACHE_SIZE = 1000;
+const regexCache = new Map<string, RegExp>();
+
 export function containsTopicKeyword(text: string, keyword: string): boolean {
   const normalizedKeyword = keyword.trim().toLowerCase();
   if (!normalizedKeyword) return false;
-  const pattern = new RegExp(`\\b${escapeRegex(normalizedKeyword)}\\b`, 'i');
+
+  let pattern = regexCache.get(normalizedKeyword);
+  if (!pattern) {
+    if (regexCache.size >= MAX_REGEX_CACHE_SIZE) {
+      // Evict the first (oldest inserted) entry
+      const firstKey = regexCache.keys().next().value;
+      if (firstKey) regexCache.delete(firstKey);
+    }
+    pattern = new RegExp(`\\b${escapeRegex(normalizedKeyword)}\\b`, 'i');
+    regexCache.set(normalizedKeyword, pattern);
+  }
+
   return pattern.test(text);
 }
 
