@@ -49,10 +49,13 @@ function buildSafeResponse(statusCode, statusText, headers, bodyBuffer) {
   return new Response(body, { status, statusText, headers });
 }
 
+// ⚡ Bolt: Hoist transient error codes to a module-level Set for O(1) membership testing
+const TRANSIENT_ERROR_CODES = new Set(['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EAI_AGAIN', 'ENOTFOUND', 'UND_ERR_CONNECT_TIMEOUT']);
+
 function isTransientVerificationError(error) {
   if (!(error instanceof Error)) return false;
   const code = typeof error.code === 'string' ? error.code : '';
-  if (code && ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EAI_AGAIN', 'ENOTFOUND', 'UND_ERR_CONNECT_TIMEOUT'].includes(code)) {
+  if (code && TRANSIENT_ERROR_CODES.has(code)) {
     return true;
   }
   if (error.name === 'AbortError') return true;
