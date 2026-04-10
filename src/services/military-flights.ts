@@ -22,6 +22,15 @@ const DIRECT_OPENSKY_BASE_URL = wsRelayUrl
   : '';
 const isLocalhostRuntime = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
+// ⚡ Bolt: Hoist constant arrays used for membership testing to module-level Sets for O(1) lookups
+const MILITARY_COUNTRIES = new Set([
+  'United States', 'United Kingdom', 'France', 'Germany', 'Israel',
+  'Turkey', 'Saudi Arabia', 'United Arab Emirates', 'Qatar', 'Kuwait',
+  'Japan', 'South Korea', 'Australia', 'Canada', 'Italy', 'Spain',
+  'Netherlands', 'Poland', 'Greece', 'Norway', 'Sweden', 'India',
+  'Pakistan', 'Egypt', 'Singapore', 'Taiwan'
+]);
+
 // Cache configuration
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes - match refresh interval
 let flightCache: { data: MilitaryFlight[]; timestamp: number } | null = null;
@@ -160,16 +169,7 @@ function isMilitaryFlight(state: OpenSkyStateArray): boolean {
     return true;
   }
 
-  // Extended list of countries with recognizable military patterns
-  const militaryCountries = [
-    'United States', 'United Kingdom', 'France', 'Germany', 'Israel',
-    'Turkey', 'Saudi Arabia', 'United Arab Emirates', 'Qatar', 'Kuwait',
-    'Japan', 'South Korea', 'Australia', 'Canada', 'Italy', 'Spain',
-    'Netherlands', 'Poland', 'Greece', 'Norway', 'Sweden', 'India',
-    'Pakistan', 'Egypt', 'Singapore', 'Taiwan'
-  ];
-
-  if (militaryCountries.includes(originCountry)) {
+  if (MILITARY_COUNTRIES.has(originCountry)) {
     // Check for expanded military callsign patterns
     const militaryPattern = /^(RCH|REACH|DUKE|KING|GOLD|NAVY|ARMY|MARINE|NATO|RAF|GAF|FAF|IAF|THK|TUR|RSAF|UAF|JPN|JASDF|ROKAF|KAF|RAAF|CANFORCE|CFC|AME|PLF|HAF|EGY|PAF|FORTE|HAWK|REAPER|COBRA|RIVET|OLIVE|SNTRY|DRAGN|BONE|DEATH|DOOM|TRIDENT|ASCOT|CNV|HMX|DUSTOFF|EVAC|MOOSE|HERKY)/i.test(callsign);
     if (callsign && militaryPattern) {
