@@ -337,15 +337,27 @@ export function detectPipelineFlowDrops(
   const signals: CorrelationSignalCore[] = [];
 
   for (const event of events) {
-    const titles = [
-      event.primaryTitle,
-      ...(event.allItems?.map(item => item.title) ?? []),
-    ]
-      .map(title => title.toLowerCase())
-      .filter(Boolean);
+    let hasPipeline = false;
+    let hasFlowDrop = false;
 
-    const hasPipeline = titles.some(title => includesKeyword(title, PIPELINE_KEYWORDS));
-    const hasFlowDrop = titles.some(title => includesKeyword(title, FLOW_DROP_KEYWORDS));
+    // Check primary title
+    if (event.primaryTitle) {
+      const lowerPrimary = event.primaryTitle.toLowerCase();
+      if (!hasPipeline && includesKeyword(lowerPrimary, PIPELINE_KEYWORDS)) hasPipeline = true;
+      if (!hasFlowDrop && includesKeyword(lowerPrimary, FLOW_DROP_KEYWORDS)) hasFlowDrop = true;
+    }
+
+    // Check all items titles
+    if ((!hasPipeline || !hasFlowDrop) && event.allItems) {
+      for (const item of event.allItems) {
+        if (!item.title) continue;
+        const lowerTitle = item.title.toLowerCase();
+        if (!hasPipeline && includesKeyword(lowerTitle, PIPELINE_KEYWORDS)) hasPipeline = true;
+        if (!hasFlowDrop && includesKeyword(lowerTitle, FLOW_DROP_KEYWORDS)) hasFlowDrop = true;
+
+        if (hasPipeline && hasFlowDrop) break;
+      }
+    }
 
     if (hasPipeline && hasFlowDrop) {
       const dedupeKey = generateDedupeKey('flow_drop', event.id, event.sourceCount);
@@ -678,9 +690,15 @@ export function analyzeCorrelationsCore(
   signals.push(...pipelineFlowSignals);
 
   // Dedupe by type to avoid spam
-  const uniqueSignals = signals.filter((sig, idx) =>
-    signals.findIndex(s => s.type === sig.type) === idx
-  );
+  const uniqueSignals: CorrelationSignalCore[] = [];
+  const seenTypes = new Set<string>();
+
+  for (const sig of signals) {
+    if (!seenTypes.has(sig.type)) {
+      seenTypes.add(sig.type);
+      uniqueSignals.push(sig);
+    }
+  }
 
   // Only return high-confidence signals
   return {
