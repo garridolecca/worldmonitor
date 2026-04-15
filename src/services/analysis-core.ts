@@ -678,9 +678,14 @@ export function analyzeCorrelationsCore(
   signals.push(...pipelineFlowSignals);
 
   // Dedupe by type to avoid spam
-  const uniqueSignals = signals.filter((sig, idx) =>
-    signals.findIndex(s => s.type === sig.type) === idx
-  );
+  const seenTypes = new Set<string>();
+  const uniqueSignals: CorrelationSignalCore[] = [];
+  for (const sig of signals) {
+    if (!seenTypes.has(sig.type)) {
+      seenTypes.add(sig.type);
+      uniqueSignals.push(sig);
+    }
+  }
 
   // Only return high-confidence signals
   return {
