@@ -677,10 +677,13 @@ export function analyzeCorrelationsCore(
   signals.push(...detectTriangulation(events, getSourceType, isRecentDuplicate, markSignalSeen));
   signals.push(...pipelineFlowSignals);
 
-  // Dedupe by type to avoid spam
-  const uniqueSignals = signals.filter((sig, idx) =>
-    signals.findIndex(s => s.type === sig.type) === idx
-  );
+  // Dedupe by type to avoid spam (O(N) Set-based approach)
+  const seenTypes = new Set<string>();
+  const uniqueSignals = signals.filter(sig => {
+    if (seenTypes.has(sig.type)) return false;
+    seenTypes.add(sig.type);
+    return true;
+  });
 
   // Only return high-confidence signals
   return {
