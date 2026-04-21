@@ -615,9 +615,16 @@ export function analyzeCorrelationsCore(
         });
       }
     } else {
-      const oldRelatedNews = Array.from(newsTopics.entries())
-        .filter(([k]) => market.name.toLowerCase().includes(k) || k.includes(market.symbol.toLowerCase()))
-        .reduce((sum, [, v]) => sum + v, 0);
+      // Optimization: Calculate oldRelatedNews using a single for...of loop and pre-computed lowercases
+      // instead of Array.from().filter().reduce() which creates multiple intermediate arrays.
+      let oldRelatedNews = 0;
+      const marketNameLower = market.name.toLowerCase();
+      const marketSymbolLower = market.symbol.toLowerCase();
+      for (const [k, v] of newsTopics) {
+        if (marketNameLower.includes(k) || k.includes(marketSymbolLower)) {
+          oldRelatedNews += v;
+        }
+      }
 
       const dedupeKey = generateDedupeKey('silent_divergence', market.symbol, change);
       if (oldRelatedNews < 2 && !isRecentDuplicate(dedupeKey)) {
@@ -648,9 +655,15 @@ export function analyzeCorrelationsCore(
 
     const change = market.change ?? 0;
     if (change >= FLOW_PRICE_THRESHOLD) {
-      const relatedNews = Array.from(newsTopics.entries())
-        .filter(([k]) => market.name.toLowerCase().includes(k) || k.includes(market.symbol.toLowerCase()))
-        .reduce((sum, [, v]) => sum + v, 0);
+      // Optimization: Avoid intermediate arrays and pre-compute lowercase strings
+      let relatedNews = 0;
+      const marketNameLower = market.name.toLowerCase();
+      const marketSymbolLower = market.symbol.toLowerCase();
+      for (const [k, v] of newsTopics) {
+        if (marketNameLower.includes(k) || k.includes(marketSymbolLower)) {
+          relatedNews += v;
+        }
+      }
 
       const dedupeKey = generateDedupeKey('flow_price_divergence', market.symbol, change);
       if (relatedNews < 2 && pipelineFlowMentions === 0 && !isRecentDuplicate(dedupeKey)) {
@@ -678,9 +691,15 @@ export function analyzeCorrelationsCore(
   signals.push(...pipelineFlowSignals);
 
   // Dedupe by type to avoid spam
-  const uniqueSignals = signals.filter((sig, idx) =>
-    signals.findIndex(s => s.type === sig.type) === idx
-  );
+  // Optimization: O(n) deduplication using Set instead of O(n^2) filter+findIndex
+  const uniqueSignals: typeof signals = [];
+  const seenTypes = new Set<string>();
+  for (const sig of signals) {
+    if (!seenTypes.has(sig.type)) {
+      seenTypes.add(sig.type);
+      uniqueSignals.push(sig);
+    }
+  }
 
   // Only return high-confidence signals
   return {
