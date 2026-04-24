@@ -1,0 +1,3 @@
+## 2024-05-19 - [Consolidating Array Iteration in High-Frequency Paths]
+**Learning:** [In UI update paths (`InsightsPanel.getImportanceScore`, `DeckGLMap.getRelatedNews`), calculating scores via chained `Array.filter().length` caused multiple O(N) array allocations per item processed. Combining them into manual counters using `for...of` loops and pre-computed values avoided significant garbage collection overhead and lowered execution time.]
+**Action:** [When performing categorization checks over strings within large loops, opt for single-pass manual tallies rather than creating intermediate arrays using map/filter chaining.]
