@@ -3414,31 +3414,55 @@ export class DeckGLMap {
     // High-priority conflict keywords that indicate the news is really about another topic
     const conflictTopics = ['gaza', 'ukraine', 'russia', 'israel', 'iran', 'china', 'taiwan', 'korea', 'syria'];
 
+    const hotspotKeywordsLower = hotspot.keywords.map(kw => kw.toLowerCase());
+    const hotspotNameLower = hotspot.name.toLowerCase();
+    const agenciesLower = hotspot.agencies ? hotspot.agencies.map(a => a.toLowerCase()) : [];
+
     return this.news
       .map((item) => {
         const titleLower = item.title.toLowerCase();
-        const matchedKeywords = hotspot.keywords.filter((kw) => titleLower.includes(kw.toLowerCase()));
 
-        if (matchedKeywords.length === 0) return null;
+        let matchCount = 0;
+        let hasStrongLocalMatch = false;
+
+        for (const kw of hotspotKeywordsLower) {
+          if (titleLower.includes(kw)) {
+            matchCount++;
+            if (!hasStrongLocalMatch) {
+              if (kw === hotspotNameLower || agenciesLower.some(a => titleLower.includes(a))) {
+                hasStrongLocalMatch = true;
+              }
+            }
+          }
+        }
+
+        if (matchCount === 0) return null;
 
         // Check if this news mentions other hotspot conflict topics
-        const conflictMatches = conflictTopics.filter(t =>
-          titleLower.includes(t) && !hotspot.keywords.some(k => k.toLowerCase().includes(t))
-        );
+        let hasConflictMatch = false;
+        for (const t of conflictTopics) {
+          if (titleLower.includes(t)) {
+             let isHotspotKeyword = false;
+             for (const kw of hotspotKeywordsLower) {
+               if (kw.includes(t)) {
+                 isHotspotKeyword = true;
+                 break;
+               }
+             }
+             if (!isHotspotKeyword) {
+               hasConflictMatch = true;
+               break;
+             }
+          }
+        }
 
         // If article mentions a major conflict topic that isn't this hotspot, deprioritize heavily
-        if (conflictMatches.length > 0) {
-          // Only include if it ALSO has a strong local keyword (city name, agency)
-          const strongLocalMatch = matchedKeywords.some(kw =>
-            kw.toLowerCase() === hotspot.name.toLowerCase() ||
-            hotspot.agencies?.some(a => titleLower.includes(a.toLowerCase()))
-          );
-          if (!strongLocalMatch) return null;
+        if (hasConflictMatch && !hasStrongLocalMatch) {
+          return null;
         }
 
         // Score: more keyword matches = more relevant
-        const score = matchedKeywords.length;
-        return { item, score };
+        return { item, score: matchCount };
       })
       .filter((x): x is { item: NewsItem; score: number } => x !== null)
       .sort((a, b) => b.score - a.score)
