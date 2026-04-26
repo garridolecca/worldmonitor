@@ -1,0 +1,3 @@
+## 2024-04-26 - [Avoid chained array methods in nested loops]
+**Learning:** Using chained array methods like `.filter(x => ...).length`, `.some()`, or `.reduce()` inside nested loops creates significant performance overhead due to intermediate array allocations and closure instantiation on every iteration.
+**Action:** In hot paths (like candidate scoring or counting matches across multiple items), replace higher-order array methods with simple imperative nested loops and explicit counters. Pass down pre-computed normalized strings (e.g., lowercased) rather than re-evaluating them at each call site.

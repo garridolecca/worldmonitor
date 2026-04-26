@@ -31,36 +31,62 @@ function toTitleLower(titles: string[]): string[] {
   return titles.map(title => title.toLowerCase());
 }
 
-function detectAssetTypes(titles: string[]): AssetType[] {
-  const normalized = toTitleLower(titles);
-  const types = Object.entries(ASSET_KEYWORDS)
-    .filter(([, keywords]) =>
-      normalized.some(title => keywords.some(keyword => title.includes(keyword)))
-    )
-    .map(([type]) => type as AssetType);
+// ⚡ Bolt: Optimized by taking pre-normalized titles and using imperative loops with early returns to avoid intermediate array allocations
+function detectAssetTypes(normalizedTitles: string[]): AssetType[] {
+  const types: AssetType[] = [];
+  const entries = Object.entries(ASSET_KEYWORDS);
+
+  for (let i = 0; i < entries.length; i++) {
+    const [type, keywords] = entries[i] as [AssetType, string[]];
+    let matchFound = false;
+
+    for (let j = 0; j < normalizedTitles.length; j++) {
+      const title = normalizedTitles[j];
+      if (!title) continue;
+      for (let k = 0; k < keywords.length; k++) {
+        const keyword = keywords[k];
+        if (keyword && title.includes(keyword)) {
+          types.push(type);
+          matchFound = true;
+          break;
+        }
+      }
+      if (matchFound) break;
+    }
+  }
   return types;
 }
 
-function countKeywordMatches(titles: string[], keywords: string[]): number {
-  const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+// ⚡ Bolt: Optimized to avoid `.filter()` allocations inside `.reduce()` and accept pre-normalized titles
+function countKeywordMatches(normalizedTitles: string[], keywords: string[]): number {
+  let count = 0;
+  for (let i = 0; i < normalizedTitles.length; i++) {
+    const title = normalizedTitles[i];
+    if (!title) continue;
+    for (let j = 0; j < keywords.length; j++) {
+      const keyword = keywords[j];
+      if (keyword && title.includes(keyword)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
-function inferOrigin(titles: string[]): AssetOrigin | null {
+// ⚡ Bolt: Pass down pre-normalized titles to avoid redundant string allocations on every candidate check
+function inferOrigin(normalizedTitles: string[]): AssetOrigin | null {
   const hotspotCandidates = INTEL_HOTSPOTS.map((hotspot) => ({
     label: hotspot.name,
     lat: hotspot.lat,
     lon: hotspot.lon,
-    score: countKeywordMatches(titles, hotspot.keywords),
+    score: countKeywordMatches(normalizedTitles, hotspot.keywords),
   })).filter(candidate => candidate.score > 0);
 
   const conflictCandidates = CONFLICT_ZONES.map((conflict) => ({
     label: conflict.name,
     lat: conflict.center[1],
     lon: conflict.center[0],
-    score: countKeywordMatches(titles, conflict.keywords ?? []),
+    score: countKeywordMatches(normalizedTitles, conflict.keywords ?? []),
   })).filter(candidate => candidate.score > 0);
 
   const allCandidates = [...hotspotCandidates, ...conflictCandidates];
@@ -142,10 +168,12 @@ function findNearbyAssets(origin: AssetOrigin, types: AssetType[]): RelatedAsset
 
 export function getClusterAssetContext(cluster: ClusteredEvent): RelatedAssetContext | null {
   const titles = cluster.allItems.map(item => item.title);
-  const types = detectAssetTypes(titles);
+  // ⚡ Bolt: Compute lowercased titles once to prevent redundant string allocations in child functions
+  const normalizedTitles = toTitleLower(titles);
+  const types = detectAssetTypes(normalizedTitles);
   if (types.length === 0) return null;
 
-  const origin = inferOrigin(titles);
+  const origin = inferOrigin(normalizedTitles);
   if (!origin) return null;
 
   const assets = findNearbyAssets(origin, types);
