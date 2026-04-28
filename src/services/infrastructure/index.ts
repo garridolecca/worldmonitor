@@ -157,11 +157,24 @@ export async function fetchServiceStatuses(): Promise<ServiceStatusResponse> {
 
   const services = resp.statuses.map(toServiceResult);
 
+  // ⚡ Bolt Performance Optimization: Single-pass loop replaces multiple .filter() passes
+  // Reduces iteration overhead and intermediate array allocations
+  let operational = 0, degraded = 0, outage = 0, unknown = 0;
+  for (let i = 0; i < services.length; i++) {
+    const service = services[i];
+    if (!service) continue;
+    const s = service.status;
+    if (s === 'operational') operational++;
+    else if (s === 'degraded') degraded++;
+    else if (s === 'outage') outage++;
+    else if (s === 'unknown') unknown++;
+  }
+
   const summary: ServiceStatusSummary = {
-    operational: services.filter((s) => s.status === 'operational').length,
-    degraded: services.filter((s) => s.status === 'degraded').length,
-    outage: services.filter((s) => s.status === 'outage').length,
-    unknown: services.filter((s) => s.status === 'unknown').length,
+    operational,
+    degraded,
+    outage,
+    unknown,
   };
 
   return {
