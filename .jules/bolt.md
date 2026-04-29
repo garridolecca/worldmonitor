@@ -1,0 +1,3 @@
+## 2025-02-28 - Replace multiple Array.filter.length with single O(N) loops
+**Learning:** The codebase previously contained several instances where the same array was iterated multiple times to compute different aggregate counts using `Array.filter(condition).length`. For example, checking 7 different `aircraftType`s in a single dataset resulted in $O(N \times 7)$ operations.
+**Action:** Replaced these chained iterations with single-pass imperative `for` loops that use manual incrementers. This reduces the time complexity to $O(N)$ and completely eliminates the allocation of intermediate array objects. This strategy should be systematically applied when gathering multiple metrics from a shared array.
