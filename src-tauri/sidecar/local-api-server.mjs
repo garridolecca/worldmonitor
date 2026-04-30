@@ -49,10 +49,13 @@ function buildSafeResponse(statusCode, statusText, headers, bodyBuffer) {
   return new Response(body, { status, statusText, headers });
 }
 
+// ⚡ Bolt Optimization: Hoisted retryable errors to Set
+const RETRYABLE_ERRORS = new Set(['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EAI_AGAIN', 'ENOTFOUND', 'UND_ERR_CONNECT_TIMEOUT']);
+
 function isTransientVerificationError(error) {
   if (!(error instanceof Error)) return false;
   const code = typeof error.code === 'string' ? error.code : '';
-  if (code && ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EAI_AGAIN', 'ENOTFOUND', 'UND_ERR_CONNECT_TIMEOUT'].includes(code)) {
+  if (code && RETRYABLE_ERRORS.has(code)) {
     return true;
   }
   if (error.name === 'AbortError') return true;
@@ -365,7 +368,7 @@ function toHeaders(nodeHeaders, options = {}) {
 
 async function proxyToCloud(requestUrl, req, remoteBase) {
   const target = `${remoteBase}${requestUrl.pathname}${requestUrl.search}`;
-  const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
+  const body = (req.method === 'GET' || req.method === 'HEAD') ? undefined : await readBody(req);
   return fetch(target, {
     method: req.method,
     // Strip browser-origin headers for server-to-server parity.
@@ -822,7 +825,7 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
       let probeUrl;
       try {
         const parsed = new URL(value);
-        if (!['http:', 'https:'].includes(parsed.protocol)) return fail('Must be an http(s) URL');
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return fail('Must be an http(s) URL');
         // Probe the OpenAI-compatible models endpoint
         probeUrl = new URL('/v1/models', value).toString();
       } catch {
@@ -1113,7 +1116,7 @@ async function dispatch(requestUrl, req, routes, context) {
       return json({ error: 'Invalid handler module', endpoint: requestUrl.pathname }, 500);
     }
 
-    const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
+    const body = (req.method === 'GET' || req.method === 'HEAD') ? undefined : await readBody(req);
     const request = new Request(requestUrl.toString(), {
       method: req.method,
       headers: toHeaders(req.headers, { stripOrigin: true }),

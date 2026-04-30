@@ -227,12 +227,12 @@ export function validateSecret(key: RuntimeSecretKey, value: string): { valid: b
     try {
       const parsed = new URL(trimmed);
       if (key === 'OLLAMA_API_URL') {
-        if (!['http:', 'https:'].includes(parsed.protocol)) {
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
           return { valid: false, hint: 'Must be an http(s) URL' };
         }
         return { valid: true };
       }
-      if (!['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:' && parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
         return { valid: false, hint: 'Must be an http(s) or ws(s) URL' };
       }
       return { valid: true };

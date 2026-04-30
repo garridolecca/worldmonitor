@@ -13,6 +13,9 @@ import type { CascadeResult, CascadeImpactLevel, InfrastructureNode } from '@/ty
 
 type NodeFilter = 'all' | 'cable' | 'pipeline' | 'port' | 'chokepoint';
 
+// ⚡ Bolt Optimization: Hoisted filter types array to Set for O(1) membership check
+const CASCADE_NODE_TYPES = new Set<NodeFilter>(['cable', 'pipeline', 'port', 'chokepoint']);
+
 export class CascadePanel extends Panel {
   private graph: DependencyGraph | null = null;
   private selectedNode: string | null = null;
@@ -243,7 +246,7 @@ export class CascadePanel extends Panel {
   public selectNode(nodeId: string): void {
     this.selectedNode = nodeId;
     const nodeType = nodeId.split(':')[0] as NodeFilter;
-    if (['cable', 'pipeline', 'port', 'chokepoint'].includes(nodeType)) {
+    if (CASCADE_NODE_TYPES.has(nodeType)) {
       this.filter = nodeType;
     }
     this.runAnalysis();
