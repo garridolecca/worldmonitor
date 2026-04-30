@@ -43,7 +43,7 @@ const wsRelayUrl = import.meta.env.VITE_WS_RELAY_URL || '';
 const DIRECT_RAILWAY_POLY_URL = wsRelayUrl
   ? wsRelayUrl.replace('wss://', 'https://').replace('ws://', 'http://').replace(/\/$/, '') + '/polymarket'
   : '';
-const isLocalhostRuntime = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const isLocalhostRuntime = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 const breaker = createCircuitBreaker<PredictionMarket[]>({ name: 'Polymarket' });
 

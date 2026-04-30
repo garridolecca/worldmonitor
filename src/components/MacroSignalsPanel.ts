@@ -105,10 +105,14 @@ function donutGaugeSvg(value: number | null, size = 48): string {
   </svg>`;
 }
 
+// ⚡ Bolt Optimization: Hoisted status arrays to Set for O(1) lookups
+const BULLISH_STATUSES = new Set(['BULLISH', 'RISK-ON', 'GROWING', 'PROFITABLE', 'ALIGNED', 'NORMAL', 'EXTREME GREED', 'GREED']);
+const BEARISH_STATUSES = new Set(['BEARISH', 'DEFENSIVE', 'DECLINING', 'SQUEEZE', 'PASSIVE GAP', 'EXTREME FEAR', 'FEAR']);
+
 function statusBadgeClass(status: string): string {
   const s = status.toUpperCase();
-  if (['BULLISH', 'RISK-ON', 'GROWING', 'PROFITABLE', 'ALIGNED', 'NORMAL', 'EXTREME GREED', 'GREED'].includes(s)) return 'badge-bullish';
-  if (['BEARISH', 'DEFENSIVE', 'DECLINING', 'SQUEEZE', 'PASSIVE GAP', 'EXTREME FEAR', 'FEAR'].includes(s)) return 'badge-bearish';
+  if (BULLISH_STATUSES.has(s)) return 'badge-bullish';
+  if (BEARISH_STATUSES.has(s)) return 'badge-bearish';
   return 'badge-neutral';
 }
 
