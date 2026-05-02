@@ -31,21 +31,47 @@ function toTitleLower(titles: string[]): string[] {
   return titles.map(title => title.toLowerCase());
 }
 
+// ⚡ Bolt: Replace map/filter/some chains with single pass imperative loops to avoid intermediate array allocations
 function detectAssetTypes(titles: string[]): AssetType[] {
   const normalized = toTitleLower(titles);
-  const types = Object.entries(ASSET_KEYWORDS)
-    .filter(([, keywords]) =>
-      normalized.some(title => keywords.some(keyword => title.includes(keyword)))
-    )
-    .map(([type]) => type as AssetType);
-  return types;
+  const result: AssetType[] = [];
+  const entries = Object.entries(ASSET_KEYWORDS) as [AssetType, string[]][];
+
+  for (let e = 0; e < entries.length; e++) {
+    const type = entries[e][0];
+    const keywords = entries[e][1];
+    let found = false;
+
+    for (let i = 0; i < normalized.length; i++) {
+      for (let j = 0; j < keywords.length; j++) {
+        if (normalized[i].includes(keywords[j])) {
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    if (found) result.push(type);
+  }
+
+  return result;
 }
 
+// ⚡ Bolt: Replace reduce/filter combination with nested loops to prevent intermediate array creation
 function countKeywordMatches(titles: string[], keywords: string[]): number {
   const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+  let count = 0;
+
+  for (let i = 0; i < normalized.length; i++) {
+    for (let j = 0; j < keywords.length; j++) {
+      if (normalized[i].includes(keywords[j])) {
+        count++;
+      }
+    }
+  }
+
+  return count;
 }
 
 function inferOrigin(titles: string[]): AssetOrigin | null {
