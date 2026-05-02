@@ -3183,11 +3183,12 @@ export class App {
     const titleLower = title.toLowerCase();
     let bestMatch: { lat: number; lon: number; matches: number } | null = null;
 
+    // ⚡ Bolt: Use a simple loop. Though similar to before, keeping it explicit avoids overhead if keywords list grows.
     const countKeywordMatches = (keywords: string[] | undefined): number => {
       if (!keywords) return 0;
       let matches = 0;
-      for (const keyword of keywords) {
-        const cleaned = keyword.trim().toLowerCase();
+      for (let i = 0; i < keywords.length; i++) {
+        const cleaned = keywords[i].trim().toLowerCase();
         if (cleaned.length >= 3 && titleLower.includes(cleaned)) {
           matches++;
         }
