@@ -832,20 +832,38 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
     );
 
     const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
+      fighters: 0,
+      tankers: 0,
+      awacs: 0,
+      reconnaissance: 0,
+      transport: 0,
+      bombers: 0,
+      drones: 0,
     };
 
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
-
     const byOperator: Record<string, number> = {};
+    let total = 0;
+
+    // ⚡ Bolt Performance Optimization:
+    // Replaced 7 individual O(N) `.filter().length` calls and a subsequent `.reduce()`
+    // with a single O(N) pass to calculate aircraft counts, operator distributions,
+    // and tracked totals simultaneously. This reduces iteration overhead and prevents
+    // unnecessary intermediate array allocations during military surge data processing.
     for (const f of theaterFlights) {
+      let isTracked = true;
+      if (f.aircraftType === 'fighter') byType.fighters++;
+      else if (f.aircraftType === 'tanker') byType.tankers++;
+      else if (f.aircraftType === 'awacs') byType.awacs++;
+      else if (f.aircraftType === 'reconnaissance') byType.reconnaissance++;
+      else if (f.aircraftType === 'transport') byType.transport++;
+      else if (f.aircraftType === 'bomber') byType.bombers++;
+      else if (f.aircraftType === 'drone') byType.drones++;
+      else isTracked = false;
+
       byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
+      if (isTracked) {
+        total++;
+      }
     }
 
     const postureLevel: 'normal' | 'elevated' | 'critical' =
