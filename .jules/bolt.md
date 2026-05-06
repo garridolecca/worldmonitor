@@ -1,0 +1,3 @@
+## 2024-05-18 - [Optimize Hot Path Category Counting]
+**Learning:** Multiple array filter-length passes (`Array.filter(condition).length`) for counting mutually exclusive categories inside hot loops create a severe performance bottleneck due to redundant O(N) iterations and intermediate array allocations.
+**Action:** When counting keyword or category matches in frequent operations (like map rendering, cross-module-integration, or military-surge lookups), replace multiple `.filter` passes with a single-pass imperative `for` loop and manual counters. This avoids O(N * categories) overhead and significantly reduces garbage collection pressure.
