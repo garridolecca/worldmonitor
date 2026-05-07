@@ -64,6 +64,9 @@ const OPERATOR_HOMES: OperatorHomeRegions[] = [
   { operator: 'gaf', country: 'Germany', homeRegions: ['baltics'], alertThreshold: 3 },
 ];
 
+// Performance optimization: O(1) lookups instead of Array.find() for operator lookups in hot paths
+const OPERATOR_HOME_MAP = new Map(OPERATOR_HOMES.map(o => [o.operator, o]));
+
 export interface ForeignPresenceAlert {
   id: string;
   operator: MilitaryOperator;
@@ -149,6 +152,9 @@ const THEATERS: MilitaryTheater[] = [
     centerLon: 40.0,
   },
 ];
+
+// Performance optimization: O(1) lookups instead of Array.find() for theater lookups in hot paths
+const THEATERS_MAP = new Map(THEATERS.map(t => [t.id, t]));
 
 const SURGE_THRESHOLD = 2.0;
 const BASELINE_WINDOW_HOURS = 48;
@@ -281,7 +287,7 @@ export function analyzeFlightsForSurge(flights: MilitaryFlight[]): SurgeAlert[] 
   const newAlerts: SurgeAlert[] = [];
 
   for (const [theaterId, theaterFlightList] of theaterFlights) {
-    const theater = THEATERS.find(t => t.id === theaterId);
+    const theater = THEATERS_MAP.get(theaterId);
     if (!theater) continue;
 
     let transportCount = 0;
@@ -398,18 +404,18 @@ function getRegionForPosition(lat: number, lon: number): GeoRegion | null {
 }
 
 function isHomeRegion(operator: MilitaryOperator, regionId: string): boolean {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  const config = OPERATOR_HOME_MAP.get(operator);
   if (!config) return true; // Unknown operator - don't alert
   return config.homeRegions.includes(regionId);
 }
 
 function getOperatorThreshold(operator: MilitaryOperator): number {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  const config = OPERATOR_HOME_MAP.get(operator);
   return config?.alertThreshold ?? 3;
 }
 
 function getOperatorCountry(operator: MilitaryOperator): string {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  const config = OPERATOR_HOME_MAP.get(operator);
   return config?.country ?? 'Unknown';
 }
 
@@ -783,6 +789,9 @@ const POSTURE_THEATERS: PostureTheater[] = [
   },
 ];
 
+// Performance optimization: O(1) lookups instead of Array.find() for posture theater lookups
+const POSTURE_THEATERS_MAP = new Map(POSTURE_THEATERS.map(t => [t.id, t]));
+
 export interface TheaterPostureSummary {
   theaterId: string;
   theaterName: string;
@@ -942,7 +951,7 @@ const TARGET_NATION_CODES: Record<string, string> = {
  */
 export function recalcPostureWithVessels(postures: TheaterPostureSummary[]): void {
   for (const p of postures) {
-    const theater = POSTURE_THEATERS.find((t) => t.id === p.theaterId);
+    const theater = POSTURE_THEATERS_MAP.get(p.theaterId);
     if (!theater) continue;
 
     const airLevel: 0 | 1 | 2 =
