@@ -43,9 +43,20 @@ function detectAssetTypes(titles: string[]): AssetType[] {
 
 function countKeywordMatches(titles: string[], keywords: string[]): number {
   const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+  // Performance Optimization: Replaced `.reduce()` and `.filter().length` chains
+  // with a nested imperative loop. This avoids allocating a new array for every
+  // keyword check, significantly reducing GC overhead in hot code paths.
+  let count = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    const title = normalized[i];
+    for (let j = 0; j < keywords.length; j++) {
+      const kw = keywords[j];
+      if (kw && title && title.includes(kw)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
 function inferOrigin(titles: string[]): AssetOrigin | null {
