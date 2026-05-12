@@ -3417,27 +3417,62 @@ export class DeckGLMap {
     return this.news
       .map((item) => {
         const titleLower = item.title.toLowerCase();
-        const matchedKeywords = hotspot.keywords.filter((kw) => titleLower.includes(kw.toLowerCase()));
 
-        if (matchedKeywords.length === 0) return null;
+        // Performance Optimization: Replaced `.filter().length` and `.some()` chains
+        // with single-pass imperative loops to avoid redundant object/array allocations in hot paths
+        let matchCount = 0;
+        let strongLocalMatch = false;
+
+        const keywords = hotspot.keywords || [];
+        for (let i = 0; i < keywords.length; i++) {
+          const kwLower = keywords[i]?.toLowerCase() || '';
+          if (kwLower && titleLower.includes(kwLower)) {
+            matchCount++;
+            if (!strongLocalMatch) {
+              if (kwLower === (hotspot.name?.toLowerCase() || '')) {
+                strongLocalMatch = true;
+              } else if (hotspot.agencies) {
+                for (let j = 0; j < hotspot.agencies.length; j++) {
+                  if (titleLower.includes(hotspot.agencies[j]?.toLowerCase() || '')) {
+                    strongLocalMatch = true;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (matchCount === 0) return null;
 
         // Check if this news mentions other hotspot conflict topics
-        const conflictMatches = conflictTopics.filter(t =>
-          titleLower.includes(t) && !hotspot.keywords.some(k => k.toLowerCase().includes(t))
-        );
+        let hasConflictMatch = false;
+        for (let i = 0; i < conflictTopics.length; i++) {
+          const t = conflictTopics[i];
+          if (t && titleLower.includes(t)) {
+            // Ensure this topic isn't part of the hotspot's own keywords
+            let isOwnKeyword = false;
+            for (let j = 0; j < keywords.length; j++) {
+              if (keywords[j]?.toLowerCase().includes(t)) {
+                isOwnKeyword = true;
+                break;
+              }
+            }
+            if (!isOwnKeyword) {
+              hasConflictMatch = true;
+              break;
+            }
+          }
+        }
 
         // If article mentions a major conflict topic that isn't this hotspot, deprioritize heavily
-        if (conflictMatches.length > 0) {
+        if (hasConflictMatch) {
           // Only include if it ALSO has a strong local keyword (city name, agency)
-          const strongLocalMatch = matchedKeywords.some(kw =>
-            kw.toLowerCase() === hotspot.name.toLowerCase() ||
-            hotspot.agencies?.some(a => titleLower.includes(a.toLowerCase()))
-          );
           if (!strongLocalMatch) return null;
         }
 
         // Score: more keyword matches = more relevant
-        const score = matchedKeywords.length;
+        const score = matchCount;
         return { item, score };
       })
       .filter((x): x is { item: NewsItem; score: number } => x !== null)

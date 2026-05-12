@@ -139,46 +139,73 @@ export class InsightsPanel extends Panel {
     // Source confirmation (base signal)
     score += cluster.sourceCount * 10;
 
+    // Performance Optimization: Replaced multiple `Array.filter` calls with manual loops
+    // to avoid redundant O(N) allocations for temporary arrays when we only need the count.
+
     // Violence/casualty keywords: highest priority (+100 base, +25 per match)
     // "Pools of blood" type stories should always surface
-    const violenceMatches = InsightsPanel.VIOLENCE_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (violenceMatches.length > 0) {
-      score += 100 + (violenceMatches.length * 25);
+    let violenceMatchCount = 0;
+    for (let i = 0; i < InsightsPanel.VIOLENCE_KEYWORDS.length; i++) {
+      const kw = InsightsPanel.VIOLENCE_KEYWORDS[i];
+      if (kw && titleLower.includes(kw)) violenceMatchCount++;
+    }
+    if (violenceMatchCount > 0) {
+      score += 100 + (violenceMatchCount * 25);
     }
 
     // Military keywords: highest priority (+80 base, +20 per match)
-    const militaryMatches = InsightsPanel.MILITARY_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (militaryMatches.length > 0) {
-      score += 80 + (militaryMatches.length * 20);
+    let militaryMatchCount = 0;
+    for (let i = 0; i < InsightsPanel.MILITARY_KEYWORDS.length; i++) {
+      const kw = InsightsPanel.MILITARY_KEYWORDS[i];
+      if (kw && titleLower.includes(kw)) militaryMatchCount++;
+    }
+    if (militaryMatchCount > 0) {
+      score += 80 + (militaryMatchCount * 20);
     }
 
     // Civil unrest: high priority (+70 base, +18 per match)
-    const unrestMatches = InsightsPanel.UNREST_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (unrestMatches.length > 0) {
-      score += 70 + (unrestMatches.length * 18);
+    let unrestMatchCount = 0;
+    for (let i = 0; i < InsightsPanel.UNREST_KEYWORDS.length; i++) {
+      const kw = InsightsPanel.UNREST_KEYWORDS[i];
+      if (kw && titleLower.includes(kw)) unrestMatchCount++;
+    }
+    if (unrestMatchCount > 0) {
+      score += 70 + (unrestMatchCount * 18);
     }
 
     // Flashpoint keywords: high priority (+60 base, +15 per match)
-    const flashpointMatches = InsightsPanel.FLASHPOINT_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (flashpointMatches.length > 0) {
-      score += 60 + (flashpointMatches.length * 15);
+    let flashpointMatchCount = 0;
+    for (let i = 0; i < InsightsPanel.FLASHPOINT_KEYWORDS.length; i++) {
+      const kw = InsightsPanel.FLASHPOINT_KEYWORDS[i];
+      if (kw && titleLower.includes(kw)) flashpointMatchCount++;
+    }
+    if (flashpointMatchCount > 0) {
+      score += 60 + (flashpointMatchCount * 15);
     }
 
     // COMBO BONUS: Violence/unrest + flashpoint location = critical story
     // e.g., "Iran protests" + "blood" = huge boost
-    if ((violenceMatches.length > 0 || unrestMatches.length > 0) && flashpointMatches.length > 0) {
+    if ((violenceMatchCount > 0 || unrestMatchCount > 0) && flashpointMatchCount > 0) {
       score *= 1.5; // 50% bonus for flashpoint unrest
     }
 
     // Crisis keywords: moderate priority (+30 base, +10 per match)
-    const crisisMatches = InsightsPanel.CRISIS_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (crisisMatches.length > 0) {
-      score += 30 + (crisisMatches.length * 10);
+    let crisisMatchCount = 0;
+    for (let i = 0; i < InsightsPanel.CRISIS_KEYWORDS.length; i++) {
+      const kw = InsightsPanel.CRISIS_KEYWORDS[i];
+      if (kw && titleLower.includes(kw)) crisisMatchCount++;
+    }
+    if (crisisMatchCount > 0) {
+      score += 30 + (crisisMatchCount * 10);
     }
 
     // Demote business/tech news that happens to contain military words
-    const demoteMatches = InsightsPanel.DEMOTE_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (demoteMatches.length > 0) {
+    let demoteMatchCount = 0;
+    for (let i = 0; i < InsightsPanel.DEMOTE_KEYWORDS.length; i++) {
+      const kw = InsightsPanel.DEMOTE_KEYWORDS[i];
+      if (kw && titleLower.includes(kw)) demoteMatchCount++;
+    }
+    if (demoteMatchCount > 0) {
       score *= 0.3; // Heavy penalty for business context
     }
 
