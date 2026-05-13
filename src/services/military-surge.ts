@@ -158,6 +158,9 @@ const TRANSPORT_CALLSIGN_PATTERNS = [
 ];
 const PROXIMITY_RADIUS_KM = 150;
 
+// Bolt: Optimization - Precompute theaters into a Map for O(1) lookups
+const THEATERS_MAP = new Map(THEATERS.map(t => [t.id, t]));
+
 const activityHistory = new Map<string, TheaterActivity[]>();
 const activeSurges = new Map<string, SurgeAlert>();
 let lastCleanup = Date.now();
@@ -281,7 +284,7 @@ export function analyzeFlightsForSurge(flights: MilitaryFlight[]): SurgeAlert[] 
   const newAlerts: SurgeAlert[] = [];
 
   for (const [theaterId, theaterFlightList] of theaterFlights) {
-    const theater = THEATERS.find(t => t.id === theaterId);
+    const theater = THEATERS_MAP.get(theaterId);
     if (!theater) continue;
 
     let transportCount = 0;
@@ -397,19 +400,22 @@ function getRegionForPosition(lat: number, lon: number): GeoRegion | null {
   return null;
 }
 
+// Bolt: Optimization - Precompute operator homes into a Map for O(1) lookups
+const OPERATOR_HOME_MAP = new Map(OPERATOR_HOMES.map(o => [o.operator, o]));
+
 function isHomeRegion(operator: MilitaryOperator, regionId: string): boolean {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  const config = OPERATOR_HOME_MAP.get(operator);
   if (!config) return true; // Unknown operator - don't alert
   return config.homeRegions.includes(regionId);
 }
 
 function getOperatorThreshold(operator: MilitaryOperator): number {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  const config = OPERATOR_HOME_MAP.get(operator);
   return config?.alertThreshold ?? 3;
 }
 
 function getOperatorCountry(operator: MilitaryOperator): string {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  const config = OPERATOR_HOME_MAP.get(operator);
   return config?.country ?? 'Unknown';
 }
 
@@ -940,9 +946,12 @@ const TARGET_NATION_CODES: Record<string, string> = {
  * Uses "either triggers" logic: if aircraft OR vessels exceed thresholds, level escalates.
  * CII boost: theaters whose target nation has CII ≥ 70 get elevated, ≥ 85 get critical.
  */
+// Bolt: Optimization - Precompute posture theaters into a Map for O(1) lookups
+const POSTURE_THEATERS_MAP = new Map(POSTURE_THEATERS.map(t => [t.id, t]));
+
 export function recalcPostureWithVessels(postures: TheaterPostureSummary[]): void {
   for (const p of postures) {
-    const theater = POSTURE_THEATERS.find((t) => t.id === p.theaterId);
+    const theater = POSTURE_THEATERS_MAP.get(p.theaterId);
     if (!theater) continue;
 
     const airLevel: 0 | 1 | 2 =
