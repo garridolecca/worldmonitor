@@ -3417,27 +3417,40 @@ export class DeckGLMap {
     return this.news
       .map((item) => {
         const titleLower = item.title.toLowerCase();
-        const matchedKeywords = hotspot.keywords.filter((kw) => titleLower.includes(kw.toLowerCase()));
 
-        if (matchedKeywords.length === 0) return null;
+        let matchedKeywordsCount = 0;
+        let hasStrongLocalMatch = false;
+        const hotspotNameLower = hotspot.name.toLowerCase();
+
+        for (const kw of hotspot.keywords) {
+          const kwLower = kw.toLowerCase();
+          if (titleLower.includes(kwLower)) {
+            matchedKeywordsCount++;
+            if (!hasStrongLocalMatch) {
+              if (kwLower === hotspotNameLower || hotspot.agencies?.some(a => titleLower.includes(a.toLowerCase()))) {
+                hasStrongLocalMatch = true;
+              }
+            }
+          }
+        }
+
+        if (matchedKeywordsCount === 0) return null;
 
         // Check if this news mentions other hotspot conflict topics
-        const conflictMatches = conflictTopics.filter(t =>
-          titleLower.includes(t) && !hotspot.keywords.some(k => k.toLowerCase().includes(t))
-        );
+        let conflictMatchesCount = 0;
+        for (const t of conflictTopics) {
+          if (titleLower.includes(t) && !hotspot.keywords.some(k => k.toLowerCase().includes(t))) {
+            conflictMatchesCount++;
+          }
+        }
 
         // If article mentions a major conflict topic that isn't this hotspot, deprioritize heavily
-        if (conflictMatches.length > 0) {
-          // Only include if it ALSO has a strong local keyword (city name, agency)
-          const strongLocalMatch = matchedKeywords.some(kw =>
-            kw.toLowerCase() === hotspot.name.toLowerCase() ||
-            hotspot.agencies?.some(a => titleLower.includes(a.toLowerCase()))
-          );
-          if (!strongLocalMatch) return null;
+        if (conflictMatchesCount > 0) {
+          if (!hasStrongLocalMatch) return null;
         }
 
         // Score: more keyword matches = more relevant
-        const score = matchedKeywords.length;
+        const score = matchedKeywordsCount;
         return { item, score };
       })
       .filter((x): x is { item: NewsItem; score: number } => x !== null)
