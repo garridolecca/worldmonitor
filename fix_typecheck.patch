@@ -1,0 +1,69 @@
+--- src/services/military-surge.ts
++++ src/services/military-surge.ts
+@@ -64,6 +64,8 @@
+   { operator: 'gaf', country: 'Germany', homeRegions: ['baltics'], alertThreshold: 3 },
+ ];
+
++const OPERATOR_HOMES_MAP = new Map(OPERATOR_HOMES.map(o => [o.operator, o]));
++
+ export interface ForeignPresenceAlert {
+   id: string;
+   operator: MilitaryOperator;
+@@ -152,6 +154,8 @@
+   },
+ ];
+
++const THEATERS_MAP = new Map(THEATERS.map(t => [t.id, t]));
++
+ const SURGE_THRESHOLD = 2.0;
+ const BASELINE_WINDOW_HOURS = 48;
+ const BASELINE_MIN_SAMPLES = 6;
+@@ -281,7 +285,7 @@
+   const newAlerts: SurgeAlert[] = [];
+
+   for (const [theaterId, theaterFlightList] of theaterFlights) {
+-    const theater = THEATERS.find(t => t.id === theaterId);
++    const theater = THEATERS_MAP.get(theaterId);
+     if (!theater) continue;
+
+     let transportCount = 0;
+@@ -398,18 +402,18 @@
+ }
+
+ function isHomeRegion(operator: MilitaryOperator, regionId: string): boolean {
+-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
++  const config = OPERATOR_HOMES_MAP.get(operator);
+   if (!config) return true; // Unknown operator - don't alert
+   return config.homeRegions.includes(regionId);
+ }
+
+ function getOperatorThreshold(operator: MilitaryOperator): number {
+-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
++  const config = OPERATOR_HOMES_MAP.get(operator);
+   return config?.alertThreshold ?? 3;
+ }
+
+ function getOperatorCountry(operator: MilitaryOperator): string {
+-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
++  const config = OPERATOR_HOMES_MAP.get(operator);
+   return config?.country ?? 'Unknown';
+ }
+
+@@ -819,6 +823,8 @@
+   },
+ ];
+
++const POSTURE_THEATERS_MAP = new Map(POSTURE_THEATERS.map(t => [t.id, t]));
++
+ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPostureSummary[] {
+   const summaries: TheaterPostureSummary[] = [];
+
+@@ -942,7 +948,7 @@
+  */
+ export function recalcPostureWithVessels(postures: TheaterPostureSummary[]): void {
+   for (const p of postures) {
+-    const theater = POSTURE_THEATERS.find((t) => t.id === p.theaterId);
++    const theater = POSTURE_THEATERS_MAP.get(p.theaterId);
+     if (!theater) continue;
+
+     const airLevel: 0 | 1 | 2 =
