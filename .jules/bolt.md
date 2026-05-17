@@ -1,0 +1,3 @@
+## 2025-05-18 - Single-Pass Score Extraction Avoids O(N) Array Iteration Within Nested Loops
+**Learning:** In `src/services/parallel-analysis.ts`, `calculateCorrelations` previously iterated over headlines and used `Array.find` within a cross-product $O(P^2)$ loop to pair perspective scores, resulting in redundant iterations and $O(P^3 \cdot N)$ complexity.
+**Action:** Always extract and group derived properties in a single O(P*N) pass into dictionaries or arrays before entering $O(P^2)$ comparison loops. This eliminates redundant `.find()` or `.filter()` calls, reducing complexity and avoiding intermediate allocations.

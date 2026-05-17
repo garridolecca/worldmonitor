@@ -444,17 +444,38 @@ class ParallelAnalysisService {
 
   private calculateCorrelations(analyzed: AnalyzedHeadline[]): Record<string, number> {
     const perspectiveNames = ['keywords', 'sentiment', 'entities', 'novelty', 'velocity', 'sources'];
+
+    // ⚡ Bolt Optimization: Pre-extract scores in a single pass to avoid redundant O(N) mapping
+    // and .find() calls inside the O(P^2) nested loop.
+    // Reduces complexity from O(P^3 * N) to O(P * N + P^2).
+    const scoresByName: Record<string, number[]> = {};
+    for (const name of perspectiveNames) {
+      scoresByName[name] = new Array(analyzed.length).fill(0);
+    }
+
+    for (let k = 0; k < analyzed.length; k++) {
+      const perspectives = analyzed[k]?.perspectives;
+      if (!perspectives) continue;
+      for (let p = 0; p < perspectives.length; p++) {
+        const perspective = perspectives[p];
+        if (perspective && perspective.name && scoresByName[perspective.name] !== undefined) {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          scoresByName[perspective.name]![k] = perspective.score;
+        }
+      }
+    }
+
     const correlations: Record<string, number> = {};
 
     for (let i = 0; i < perspectiveNames.length; i++) {
       for (let j = i + 1; j < perspectiveNames.length; j++) {
-        const name1 = perspectiveNames[i];
-        const name2 = perspectiveNames[j];
+        const name1 = perspectiveNames[i] as string;
+        const name2 = perspectiveNames[j] as string;
 
-        const scores1 = analyzed.map(a => a.perspectives.find(p => p.name === name1)?.score ?? 0);
-        const scores2 = analyzed.map(a => a.perspectives.find(p => p.name === name2)?.score ?? 0);
+        const scores1 = scoresByName[name1];
+        const scores2 = scoresByName[name2];
 
-        const correlation = this.pearsonCorrelation(scores1, scores2);
+        const correlation = (scores1 && scores2) ? this.pearsonCorrelation(scores1, scores2) : 0;
         correlations[`${name1}-${name2}`] = correlation;
       }
     }
