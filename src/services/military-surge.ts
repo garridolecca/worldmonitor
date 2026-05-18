@@ -231,9 +231,20 @@ function calculateBaseline(theaterId: string): { transport: number; fighter: num
     return { transport: 3, fighter: 2, recon: 1 };
   }
 
-  const avgTransport = relevant.reduce((sum, h) => sum + h.transportCount, 0) / relevant.length;
-  const avgFighter = relevant.reduce((sum, h) => sum + h.fighterCount, 0) / relevant.length;
-  const avgRecon = relevant.reduce((sum, h) => sum + h.reconCount, 0) / relevant.length;
+  // ⚡ Bolt Optimization: Consolidate 3 reduce passes into a single O(N) pass
+  let sumTransport = 0;
+  let sumFighter = 0;
+  let sumRecon = 0;
+
+  for (const h of relevant) {
+    sumTransport += h.transportCount;
+    sumFighter += h.fighterCount;
+    sumRecon += h.reconCount;
+  }
+
+  const avgTransport = sumTransport / relevant.length;
+  const avgFighter = sumFighter / relevant.length;
+  const avgRecon = sumRecon / relevant.length;
 
   return {
     transport: Math.max(2, avgTransport),
@@ -831,20 +842,33 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
         f.lon <= theater.bounds.east
     );
 
+    // ⚡ Bolt Optimization: Consolidate 7 filter passes and reduce into a single O(N) pass
     const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
+      fighters: 0,
+      tankers: 0,
+      awacs: 0,
+      reconnaissance: 0,
+      transport: 0,
+      bombers: 0,
+      drones: 0,
     };
 
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
-
+    let total = 0;
     const byOperator: Record<string, number> = {};
+
     for (const f of theaterFlights) {
+      if (f.aircraftType === 'fighter') byType.fighters++;
+      else if (f.aircraftType === 'tanker') byType.tankers++;
+      else if (f.aircraftType === 'awacs') byType.awacs++;
+      else if (f.aircraftType === 'reconnaissance') byType.reconnaissance++;
+      else if (f.aircraftType === 'transport') byType.transport++;
+      else if (f.aircraftType === 'bomber') byType.bombers++;
+      else if (f.aircraftType === 'drone') byType.drones++;
+
+      // Keep track of total to avoid Object.values(byType).reduce(...)
+      total++;
+
+      // Calculate byOperator in the same pass
       byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
     }
 
