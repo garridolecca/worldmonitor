@@ -27,25 +27,51 @@ interface AssetOrigin {
   label: string;
 }
 
-function toTitleLower(titles: string[]): string[] {
-  return titles.map(title => title.toLowerCase());
-}
-
 function detectAssetTypes(titles: string[]): AssetType[] {
-  const normalized = toTitleLower(titles);
-  const types = Object.entries(ASSET_KEYWORDS)
-    .filter(([, keywords]) =>
-      normalized.some(title => keywords.some(keyword => title.includes(keyword)))
-    )
-    .map(([type]) => type as AssetType);
-  return types;
+  // Optimization: Use a Set to track found types and avoid redundant iterations and intermediate allocations.
+  const types = new Set<AssetType>();
+  const assetEntries = Object.entries(ASSET_KEYWORDS) as [AssetType, string[]][];
+
+  for (let i = 0; i < titles.length; i++) {
+    const title = titles[i];
+    if (!title) continue;
+    const titleLower = title.toLowerCase();
+    for (let j = 0; j < assetEntries.length; j++) {
+      const entry = assetEntries[j];
+      if (!entry) continue;
+      const type = entry[0];
+      if (types.has(type)) continue;
+
+      const keywords = entry[1];
+      for (let k = 0; k < keywords.length; k++) {
+        const keyword = keywords[k];
+        if (keyword && titleLower.includes(keyword)) {
+          types.add(type);
+          break;
+        }
+      }
+    }
+    // Early exit if we found all types
+    if (types.size === assetEntries.length) break;
+  }
+  return Array.from(types);
 }
 
 function countKeywordMatches(titles: string[], keywords: string[]): number {
-  const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+  // Optimization: Consolidate multiple passes and array allocations into a single imperative loop.
+  let count = 0;
+  for (let i = 0; i < titles.length; i++) {
+    const title = titles[i];
+    if (!title) continue;
+    const titleLower = title.toLowerCase();
+    for (let j = 0; j < keywords.length; j++) {
+      const keyword = keywords[j];
+      if (keyword && titleLower.includes(keyword)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
 function inferOrigin(titles: string[]): AssetOrigin | null {
