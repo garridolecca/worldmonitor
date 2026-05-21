@@ -1,0 +1,3 @@
+## 2025-05-18 - Avoid Array.filter for substring membership in loops
+**Learning:** Chaining `.filter(kw => string.includes(kw))` over static keyword arrays within hot paths (e.g., inside loops iterating over news items or events) leads to significant performance degradation (~5x slower) and unnecessary intermediate array allocations compared to imperative `for` loops.
+**Action:** Replace `Array.filter` checks with an imperative loop helper that increments a counter (if only the count is needed) or pushes directly to an array, avoiding full array traversals when not needed and stopping intermediate allocations.
