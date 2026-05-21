@@ -197,29 +197,40 @@ class ParallelAnalysisService {
     return report;
   }
 
+  // Bolt Optimization: Helper to find keyword matches imperatively to avoid intermediate array allocations for non-matches
+  private findMatches(text: string, keywords: string[]): string[] {
+    const matches: string[] = [];
+    for (let i = 0; i < keywords.length; i++) {
+      if (text.includes(keywords[i]!)) {
+        matches.push(keywords[i]!);
+      }
+    }
+    return matches;
+  }
+
   private scoreByKeywords(titleLower: string, _cluster: ClusteredEvent): PerspectiveScore {
     let score = 0;
     const reasons: string[] = [];
 
-    const violence = VIOLENCE_KEYWORDS.filter(kw => titleLower.includes(kw));
+    const violence = this.findMatches(titleLower, VIOLENCE_KEYWORDS);
     if (violence.length > 0) {
       score += 0.4 + violence.length * 0.1;
       reasons.push(`violence(${violence.join(',')})`);
     }
 
-    const military = MILITARY_KEYWORDS.filter(kw => titleLower.includes(kw));
+    const military = this.findMatches(titleLower, MILITARY_KEYWORDS);
     if (military.length > 0) {
       score += 0.3 + military.length * 0.08;
       reasons.push(`military(${military.join(',')})`);
     }
 
-    const unrest = UNREST_KEYWORDS.filter(kw => titleLower.includes(kw));
+    const unrest = this.findMatches(titleLower, UNREST_KEYWORDS);
     if (unrest.length > 0) {
       score += 0.25 + unrest.length * 0.07;
       reasons.push(`unrest(${unrest.join(',')})`);
     }
 
-    const flashpoint = FLASHPOINT_KEYWORDS.filter(kw => titleLower.includes(kw));
+    const flashpoint = this.findMatches(titleLower, FLASHPOINT_KEYWORDS);
     if (flashpoint.length > 0) {
       score += 0.2 + flashpoint.length * 0.05;
       reasons.push(`flashpoint(${flashpoint.join(',')})`);
@@ -230,7 +241,7 @@ class ParallelAnalysisService {
       reasons.push('combo-bonus');
     }
 
-    const business = BUSINESS_DEMOTE.filter(kw => titleLower.includes(kw));
+    const business = this.findMatches(titleLower, BUSINESS_DEMOTE);
     if (business.length > 0) {
       score *= 0.4;
       reasons.push(`demoted(${business.join(',')})`);
