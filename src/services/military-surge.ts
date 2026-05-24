@@ -831,20 +831,25 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
         f.lon <= theater.bounds.east
     );
 
-    const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
-    };
-
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
-
+    // ⚡ Bolt: Consolidated O(N) array filtering into a single loop to calculate byType, total, and byOperator
+    // This avoids 7 separate filter passes over theaterFlights.
+    const byType = { fighters: 0, tankers: 0, awacs: 0, reconnaissance: 0, transport: 0, bombers: 0, drones: 0 };
     const byOperator: Record<string, number> = {};
-    for (const f of theaterFlights) {
+    let total = 0;
+
+    for (let i = 0; i < theaterFlights.length; i++) {
+      const f = theaterFlights[i];
+      if (!f) continue;
+
+      const type = f.aircraftType;
+      if (type === 'fighter') { byType.fighters++; total++; }
+      else if (type === 'tanker') { byType.tankers++; total++; }
+      else if (type === 'awacs') { byType.awacs++; total++; }
+      else if (type === 'reconnaissance') { byType.reconnaissance++; total++; }
+      else if (type === 'transport') { byType.transport++; total++; }
+      else if (type === 'bomber') { byType.bombers++; total++; }
+      else if (type === 'drone') { byType.drones++; total++; }
+
       byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
     }
 
