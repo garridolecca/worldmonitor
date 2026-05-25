@@ -179,22 +179,35 @@ export class StrategicPosturePanel extends Panel {
         );
 
         // Count by type
-        posture.destroyers = theaterVessels.filter((v) => v.vesselType === 'destroyer').length;
-        posture.frigates = theaterVessels.filter((v) => v.vesselType === 'frigate').length;
-        posture.carriers = theaterVessels.filter((v) => v.vesselType === 'carrier').length;
-        posture.submarines = theaterVessels.filter((v) => v.vesselType === 'submarine').length;
-        posture.patrol = theaterVessels.filter((v) => v.vesselType === 'patrol').length;
-        posture.auxiliaryVessels = theaterVessels.filter(
-          (v) => v.vesselType === 'auxiliary' || v.vesselType === 'special' || v.vesselType === 'amphibious' || v.vesselType === 'icebreaker' || v.vesselType === 'research' || v.vesselType === 'unknown'
-        ).length;
+        posture.destroyers = 0;
+        posture.frigates = 0;
+        posture.carriers = 0;
+        posture.submarines = 0;
+        posture.patrol = 0;
+        posture.auxiliaryVessels = 0;
         posture.totalVessels = theaterVessels.length;
 
         if (theaterVessels.length > 0) {
           console.log(`[StrategicPosturePanel] ${posture.shortName}: ${theaterVessels.length} vessels`, theaterVessels.map(v => v.vesselType));
         }
 
-        // Add vessel operators to byOperator
+        // ⚡ Bolt: Consolidated multiple O(N) filter passes into a single loop
         for (const v of theaterVessels) {
+          switch (v.vesselType) {
+            case 'destroyer': posture.destroyers++; break;
+            case 'frigate': posture.frigates++; break;
+            case 'carrier': posture.carriers++; break;
+            case 'submarine': posture.submarines++; break;
+            case 'patrol': posture.patrol++; break;
+            case 'auxiliary':
+            case 'special':
+            case 'amphibious':
+            case 'icebreaker':
+            case 'research':
+            case 'unknown':
+              posture.auxiliaryVessels++; break;
+          }
+
           const op = v.operator || 'unknown';
           posture.byOperator[op] = (posture.byOperator[op] || 0) + 1;
         }
