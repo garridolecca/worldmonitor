@@ -64,6 +64,9 @@ const OPERATOR_HOMES: OperatorHomeRegions[] = [
   { operator: 'gaf', country: 'Germany', homeRegions: ['baltics'], alertThreshold: 3 },
 ];
 
+// Bolt: performance optimization - Use Map for O(1) lookups instead of O(N) Array.find
+const OPERATOR_HOMES_MAP = new Map(OPERATOR_HOMES.map(o => [o.operator, o]));
+
 export interface ForeignPresenceAlert {
   id: string;
   operator: MilitaryOperator;
@@ -149,6 +152,9 @@ const THEATERS: MilitaryTheater[] = [
     centerLon: 40.0,
   },
 ];
+
+// Bolt: performance optimization - Use Map for O(1) lookups instead of O(N) Array.find
+const THEATERS_MAP = new Map(THEATERS.map(t => [t.id, t]));
 
 const SURGE_THRESHOLD = 2.0;
 const BASELINE_WINDOW_HOURS = 48;
@@ -281,7 +287,7 @@ export function analyzeFlightsForSurge(flights: MilitaryFlight[]): SurgeAlert[] 
   const newAlerts: SurgeAlert[] = [];
 
   for (const [theaterId, theaterFlightList] of theaterFlights) {
-    const theater = THEATERS.find(t => t.id === theaterId);
+    const theater = THEATERS_MAP.get(theaterId);
     if (!theater) continue;
 
     let transportCount = 0;
@@ -398,18 +404,18 @@ function getRegionForPosition(lat: number, lon: number): GeoRegion | null {
 }
 
 function isHomeRegion(operator: MilitaryOperator, regionId: string): boolean {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  const config = OPERATOR_HOMES_MAP.get(operator);
   if (!config) return true; // Unknown operator - don't alert
   return config.homeRegions.includes(regionId);
 }
 
 function getOperatorThreshold(operator: MilitaryOperator): number {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  const config = OPERATOR_HOMES_MAP.get(operator);
   return config?.alertThreshold ?? 3;
 }
 
 function getOperatorCountry(operator: MilitaryOperator): string {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  const config = OPERATOR_HOMES_MAP.get(operator);
   return config?.country ?? 'Unknown';
 }
 
@@ -783,6 +789,9 @@ const POSTURE_THEATERS: PostureTheater[] = [
   },
 ];
 
+// Bolt: performance optimization - Use Map for O(1) lookups instead of O(N) Array.find
+const POSTURE_THEATERS_MAP = new Map(POSTURE_THEATERS.map(t => [t.id, t]));
+
 export interface TheaterPostureSummary {
   theaterId: string;
   theaterName: string;
@@ -823,29 +832,40 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
   const summaries: TheaterPostureSummary[] = [];
 
   for (const theater of POSTURE_THEATERS) {
-    const theaterFlights = flights.filter(
-      (f) =>
+    // Bolt: performance optimization - consolidate multiple O(N) filter passes into a single imperative loop
+    const byType = {
+      fighters: 0,
+      tankers: 0,
+      awacs: 0,
+      reconnaissance: 0,
+      transport: 0,
+      bombers: 0,
+      drones: 0,
+    };
+
+    let total = 0;
+    const byOperator: Record<string, number> = {};
+
+    for (const f of flights) {
+      if (
         f.lat >= theater.bounds.south &&
         f.lat <= theater.bounds.north &&
         f.lon >= theater.bounds.west &&
         f.lon <= theater.bounds.east
-    );
+      ) {
+        total++;
+        byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
 
-    const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
-    };
-
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
-
-    const byOperator: Record<string, number> = {};
-    for (const f of theaterFlights) {
-      byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
+        switch (f.aircraftType) {
+          case 'fighter': byType.fighters++; break;
+          case 'tanker': byType.tankers++; break;
+          case 'awacs': byType.awacs++; break;
+          case 'reconnaissance': byType.reconnaissance++; break;
+          case 'transport': byType.transport++; break;
+          case 'bomber': byType.bombers++; break;
+          case 'drone': byType.drones++; break;
+        }
+      }
     }
 
     const postureLevel: 'normal' | 'elevated' | 'critical' =
@@ -942,7 +962,7 @@ const TARGET_NATION_CODES: Record<string, string> = {
  */
 export function recalcPostureWithVessels(postures: TheaterPostureSummary[]): void {
   for (const p of postures) {
-    const theater = POSTURE_THEATERS.find((t) => t.id === p.theaterId);
+    const theater = POSTURE_THEATERS_MAP.get(p.theaterId);
     if (!theater) continue;
 
     const airLevel: 0 | 1 | 2 =
