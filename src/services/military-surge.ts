@@ -231,9 +231,21 @@ function calculateBaseline(theaterId: string): { transport: number; fighter: num
     return { transport: 3, fighter: 2, recon: 1 };
   }
 
-  const avgTransport = relevant.reduce((sum, h) => sum + h.transportCount, 0) / relevant.length;
-  const avgFighter = relevant.reduce((sum, h) => sum + h.fighterCount, 0) / relevant.length;
-  const avgRecon = relevant.reduce((sum, h) => sum + h.reconCount, 0) / relevant.length;
+  // PERFORMANCE: Use a single O(N) pass over relevant history to compute
+  // averages simultaneously instead of 3 separate array.reduce() passes.
+  let sumTransport = 0;
+  let sumFighter = 0;
+  let sumRecon = 0;
+
+  for (const h of relevant) {
+    sumTransport += h.transportCount;
+    sumFighter += h.fighterCount;
+    sumRecon += h.reconCount;
+  }
+
+  const avgTransport = sumTransport / relevant.length;
+  const avgFighter = sumFighter / relevant.length;
+  const avgRecon = sumRecon / relevant.length;
 
   return {
     transport: Math.max(2, avgTransport),
@@ -831,22 +843,36 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
         f.lon <= theater.bounds.east
     );
 
+    // PERFORMANCE: Use a single O(N) pass over theaterFlights to populate
+    // both 'byType' counts and 'byOperator' dictionary simultaneously.
+    // This replaces 7 sequential array.filter().length passes + 1 separate loop,
+    // reducing total iterations from O(8N) to O(N).
     const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
+      fighters: 0,
+      tankers: 0,
+      awacs: 0,
+      reconnaissance: 0,
+      transport: 0,
+      bombers: 0,
+      drones: 0,
     };
 
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
-
     const byOperator: Record<string, number> = {};
+
     for (const f of theaterFlights) {
       byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
+      switch (f.aircraftType) {
+        case 'fighter': byType.fighters++; break;
+        case 'tanker': byType.tankers++; break;
+        case 'awacs': byType.awacs++; break;
+        case 'reconnaissance': byType.reconnaissance++; break;
+        case 'transport': byType.transport++; break;
+        case 'bomber': byType.bombers++; break;
+        case 'drone': byType.drones++; break;
+      }
     }
+
+    const total = Object.values(byType).reduce((a, b) => a + b, 0);
 
     const postureLevel: 'normal' | 'elevated' | 'critical' =
       total >= theater.thresholds.critical
