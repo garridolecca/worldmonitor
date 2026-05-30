@@ -1,0 +1,3 @@
+## 2024-05-24 - Array Iteration Hot Path Optimization
+**Learning:** The application heavily relies on scanning text and matching keywords (especially in `InsightsPanel.ts` and `related-assets.ts`). Multiple `.filter(kw => title.includes(kw)).length` or `.reduce` + `.filter` calls on the same arrays during render or processing loops significantly increases garbage collection overhead and blocks the main thread.
+**Action:** When counting matches across multiple categories, replace multiple `.filter().length` calls with a single imperative loop using manual counters. This avoids throwing away intermediate arrays and executing closure functions, yielding measurable performance improvements.
