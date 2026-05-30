@@ -43,9 +43,16 @@ function detectAssetTypes(titles: string[]): AssetType[] {
 
 function countKeywordMatches(titles: string[], keywords: string[]): number {
   const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+  let count = 0;
+  for (let i = 0; i < keywords.length; i++) {
+    const keyword = keywords[i]!;
+    for (let j = 0; j < normalized.length; j++) {
+      if (normalized[j]!.includes(keyword)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
 function inferOrigin(titles: string[]): AssetOrigin | null {
