@@ -831,21 +831,25 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
         f.lon <= theater.bounds.east
     );
 
-    const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
-    };
-
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
-
+    // ⚡ Bolt: Consolidated 7 separate .filter() passes, a .reduce(), and a byOperator loop
+    // into a single O(N) pass to reduce redundant iteration and intermediate array allocations.
+    const byType = { fighters: 0, tankers: 0, awacs: 0, reconnaissance: 0, transport: 0, bombers: 0, drones: 0 };
+    let total = 0;
     const byOperator: Record<string, number> = {};
+
     for (const f of theaterFlights) {
+      total++;
       byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
+
+      switch (f.aircraftType) {
+        case 'fighter': byType.fighters++; break;
+        case 'tanker': byType.tankers++; break;
+        case 'awacs': byType.awacs++; break;
+        case 'reconnaissance': byType.reconnaissance++; break;
+        case 'transport': byType.transport++; break;
+        case 'bomber': byType.bombers++; break;
+        case 'drone': byType.drones++; break;
+      }
     }
 
     const postureLevel: 'normal' | 'elevated' | 'critical' =
