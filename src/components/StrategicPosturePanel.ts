@@ -178,25 +178,31 @@ export class StrategicPosturePanel extends Panel {
             v.lon <= posture.bounds!.east
         );
 
-        // Count by type
-        posture.destroyers = theaterVessels.filter((v) => v.vesselType === 'destroyer').length;
-        posture.frigates = theaterVessels.filter((v) => v.vesselType === 'frigate').length;
-        posture.carriers = theaterVessels.filter((v) => v.vesselType === 'carrier').length;
-        posture.submarines = theaterVessels.filter((v) => v.vesselType === 'submarine').length;
-        posture.patrol = theaterVessels.filter((v) => v.vesselType === 'patrol').length;
-        posture.auxiliaryVessels = theaterVessels.filter(
-          (v) => v.vesselType === 'auxiliary' || v.vesselType === 'special' || v.vesselType === 'amphibious' || v.vesselType === 'icebreaker' || v.vesselType === 'research' || v.vesselType === 'unknown'
-        ).length;
+        // O(N) consolidation: Count by type and aggregate operators in a single pass
+        posture.destroyers = 0;
+        posture.frigates = 0;
+        posture.carriers = 0;
+        posture.submarines = 0;
+        posture.patrol = 0;
+        posture.auxiliaryVessels = 0;
         posture.totalVessels = theaterVessels.length;
+
+        for (const v of theaterVessels) {
+          // Aggregate by type
+          if (v.vesselType === 'destroyer') posture.destroyers++;
+          else if (v.vesselType === 'frigate') posture.frigates++;
+          else if (v.vesselType === 'carrier') posture.carriers++;
+          else if (v.vesselType === 'submarine') posture.submarines++;
+          else if (v.vesselType === 'patrol') posture.patrol++;
+          else if (['auxiliary', 'special', 'amphibious', 'icebreaker', 'research', 'unknown'].includes(v.vesselType)) posture.auxiliaryVessels++;
+
+          // Aggregate by operator
+          const op = v.operator || 'unknown';
+          posture.byOperator[op] = (posture.byOperator[op] || 0) + 1;
+        }
 
         if (theaterVessels.length > 0) {
           console.log(`[StrategicPosturePanel] ${posture.shortName}: ${theaterVessels.length} vessels`, theaterVessels.map(v => v.vesselType));
-        }
-
-        // Add vessel operators to byOperator
-        for (const v of theaterVessels) {
-          const op = v.operator || 'unknown';
-          posture.byOperator[op] = (posture.byOperator[op] || 0) + 1;
         }
       }
 
