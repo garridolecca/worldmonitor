@@ -1,0 +1,3 @@
+## 2024-05-19 - Fast Type Filtering Loops
+**Learning:** Consolidating sequential `.filter()` operations over object arrays is a proven performance optimization, but be cautious about how summary stats like `total` are computed. In the original `getTheaterPostureSummaries` refactor, checking if an element existed in an array `['fighter', 'tanker', ...].includes(f.aircraftType)` inside a tight loop negated some performance gains due to array allocation overhead on every iteration.
+**Action:** When migrating `total` aggregations out of `.reduce()` and into a unified loop, avoid inline array creations. Update the `total` counter incrementally inside the existing type-checking `if/else` block branches to maintain optimal O(1) condition checking within the O(N) loop.
