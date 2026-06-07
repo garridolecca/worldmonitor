@@ -178,15 +178,31 @@ export class StrategicPosturePanel extends Panel {
             v.lon <= posture.bounds!.east
         );
 
-        // Count by type
-        posture.destroyers = theaterVessels.filter((v) => v.vesselType === 'destroyer').length;
-        posture.frigates = theaterVessels.filter((v) => v.vesselType === 'frigate').length;
-        posture.carriers = theaterVessels.filter((v) => v.vesselType === 'carrier').length;
-        posture.submarines = theaterVessels.filter((v) => v.vesselType === 'submarine').length;
-        posture.patrol = theaterVessels.filter((v) => v.vesselType === 'patrol').length;
-        posture.auxiliaryVessels = theaterVessels.filter(
-          (v) => v.vesselType === 'auxiliary' || v.vesselType === 'special' || v.vesselType === 'amphibious' || v.vesselType === 'icebreaker' || v.vesselType === 'research' || v.vesselType === 'unknown'
-        ).length;
+        // Count by type in a single pass
+        let destroyers = 0, frigates = 0, carriers = 0, submarines = 0, patrol = 0, auxiliaryVessels = 0;
+        for (const v of theaterVessels) {
+          switch (v.vesselType) {
+            case 'destroyer': destroyers++; break;
+            case 'frigate': frigates++; break;
+            case 'carrier': carriers++; break;
+            case 'submarine': submarines++; break;
+            case 'patrol': patrol++; break;
+            case 'auxiliary':
+            case 'special':
+            case 'amphibious':
+            case 'icebreaker':
+            case 'research':
+            case 'unknown':
+              auxiliaryVessels++; break;
+          }
+        }
+
+        posture.destroyers = destroyers;
+        posture.frigates = frigates;
+        posture.carriers = carriers;
+        posture.submarines = submarines;
+        posture.patrol = patrol;
+        posture.auxiliaryVessels = auxiliaryVessels;
         posture.totalVessels = theaterVessels.length;
 
         if (theaterVessels.length > 0) {
