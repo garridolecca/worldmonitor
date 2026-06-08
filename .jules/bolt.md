@@ -1,0 +1,3 @@
+## 2025-02-23 - Avoid .includes() checks in hot loops
+**Learning:** In code paths heavily reliant on enumerating mapped string types (e.g., categorizing items like `f.aircraftType`), doing an inline `['val1', 'val2'].includes(val)` check at the end of the loop iteration adds an unnecessary `O(M)` array traversal penalty per iteration. The better pattern is to eagerly increment the sum or flag inside the existing if/else ladder, bypassing the array allocation and evaluation.
+**Action:** Always increment summary counters directly within the target condition blocks instead of evaluating `.includes()` at the end of the iteration.

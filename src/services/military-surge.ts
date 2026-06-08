@@ -831,21 +831,23 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
         f.lon <= theater.bounds.east
     );
 
-    const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
-    };
-
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
-
+    // Performance optimization: Combine multiple .filter().length passes and operator counting into a single O(N) loop
+    const byType = { fighters: 0, tankers: 0, awacs: 0, reconnaissance: 0, transport: 0, bombers: 0, drones: 0 };
     const byOperator: Record<string, number> = {};
+    let total = 0;
+
     for (const f of theaterFlights) {
+      // Count operator
       byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
+
+      // Count types that we track in byType and update total
+      if (f.aircraftType === 'fighter') { byType.fighters++; total++; }
+      else if (f.aircraftType === 'tanker') { byType.tankers++; total++; }
+      else if (f.aircraftType === 'awacs') { byType.awacs++; total++; }
+      else if (f.aircraftType === 'reconnaissance') { byType.reconnaissance++; total++; }
+      else if (f.aircraftType === 'transport') { byType.transport++; total++; }
+      else if (f.aircraftType === 'bomber') { byType.bombers++; total++; }
+      else if (f.aircraftType === 'drone') { byType.drones++; total++; }
     }
 
     const postureLevel: 'normal' | 'elevated' | 'critical' =
