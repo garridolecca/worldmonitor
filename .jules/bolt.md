@@ -1,0 +1,4 @@
+
+## 2024-05-24 - Array Map/Filter Consolidation in military-surge.ts
+**Learning:** Found a sequence of 7 `.filter().length` array traversals and a `.reduce()` immediately followed by an additional `for...of` loop over `theaterFlights` inside `getTheaterPostureSummaries`. Benchmarking showed that consolidating these passes into a single imperative loop tracking variables improved execution time by ~50% (from ~1.14s to ~0.57s for 10000 iterations over 1000 items). The runtime cost was effectively O(8N) and is now O(N).
+**Action:** When calculating sub-category counts and aggregates for datasets (like military flights, events, assets), avoid using multiple `.filter()` calls. Instead, use a single `for...of` loop with a `switch` statement (or object-map) to populate separate counters simultaneously.
