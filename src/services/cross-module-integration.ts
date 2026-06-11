@@ -537,10 +537,14 @@ export function clearAlerts(): void {
 }
 
 export function getAlertCount(): { critical: number; high: number; medium: number; low: number } {
-  return {
-    critical: alerts.filter(a => a.priority === 'critical').length,
-    high: alerts.filter(a => a.priority === 'high').length,
-    medium: alerts.filter(a => a.priority === 'medium').length,
-    low: alerts.filter(a => a.priority === 'low').length,
-  };
+  // Performance optimization: Single pass over the array instead of 4 multiple .filter().length passes
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (let i = 0; i < alerts.length; i++) {
+    const priority = alerts[i]!.priority;
+    if (priority === 'critical') counts.critical++;
+    else if (priority === 'high') counts.high++;
+    else if (priority === 'medium') counts.medium++;
+    else if (priority === 'low') counts.low++;
+  }
+  return counts;
 }
