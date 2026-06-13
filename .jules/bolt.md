@@ -1,0 +1,3 @@
+## 2024-06-13 - [Hoisting allocations outside O(M*N) candidate loops]
+**Learning:** [In `inferOrigin`, evaluating candidates dynamically against string arrays caused `toTitleLower(titles)` to re-allocate on every tick, causing massive O(M*N) bloat. Also, combining `.some`, `.map`, `.filter`, and `.reduce` inside loops is a huge performance hit because it creates intermediate arrays and closure allocations.]
+**Action:** [Hoist invariant transformations (like array lowercasing) out of candidate loops. Replace high-order array iterations with standard `for` loops in performance-critical hotpaths.]
