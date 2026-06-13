@@ -31,42 +31,69 @@ function toTitleLower(titles: string[]): string[] {
   return titles.map(title => title.toLowerCase());
 }
 
+// ⚡ Bolt: Replaced nested `.some` and `.filter` arrays with an explicit, single-pass imperative loop for performance.
 function detectAssetTypes(titles: string[]): AssetType[] {
   const normalized = toTitleLower(titles);
-  const types = Object.entries(ASSET_KEYWORDS)
-    .filter(([, keywords]) =>
-      normalized.some(title => keywords.some(keyword => title.includes(keyword)))
-    )
-    .map(([type]) => type as AssetType);
+  const types: AssetType[] = [];
+
+  const entries = Object.entries(ASSET_KEYWORDS) as [AssetType, string[]][];
+  for (let i = 0; i < entries.length; i++) {
+    const [type, keywords] = entries[i]!;
+    let found = false;
+    for (let j = 0; j < normalized.length; j++) {
+      const title = normalized[j]!;
+      for (let k = 0; k < keywords.length; k++) {
+        if (title.includes(keywords[k]!)) {
+          types.push(type);
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+  }
   return types;
 }
 
-function countKeywordMatches(titles: string[], keywords: string[]): number {
-  const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+// ⚡ Bolt: Replaced `.reduce` and `.filter` with a standard for loop to avoid intermediate allocations.
+function countKeywordMatches(normalizedTitles: string[], keywords: string[]): number {
+  let count = 0;
+  for (let i = 0; i < normalizedTitles.length; i++) {
+    const title = normalizedTitles[i]!;
+    for (let j = 0; j < keywords.length; j++) {
+      if (title.includes(keywords[j]!)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
+// ⚡ Bolt: Avoided array `.map` and `.sort` allocations by scanning iteratively for the max score.
 function inferOrigin(titles: string[]): AssetOrigin | null {
-  const hotspotCandidates = INTEL_HOTSPOTS.map((hotspot) => ({
-    label: hotspot.name,
-    lat: hotspot.lat,
-    lon: hotspot.lon,
-    score: countKeywordMatches(titles, hotspot.keywords),
-  })).filter(candidate => candidate.score > 0);
+  const normalized = toTitleLower(titles);
+  let bestScore = 0;
+  let bestCandidate: AssetOrigin | null = null;
 
-  const conflictCandidates = CONFLICT_ZONES.map((conflict) => ({
-    label: conflict.name,
-    lat: conflict.center[1],
-    lon: conflict.center[0],
-    score: countKeywordMatches(titles, conflict.keywords ?? []),
-  })).filter(candidate => candidate.score > 0);
+  for (let i = 0; i < INTEL_HOTSPOTS.length; i++) {
+    const hotspot = INTEL_HOTSPOTS[i]!;
+    const score = countKeywordMatches(normalized, hotspot.keywords);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCandidate = { label: hotspot.name, lat: hotspot.lat, lon: hotspot.lon };
+    }
+  }
 
-  const allCandidates = [...hotspotCandidates, ...conflictCandidates];
-  if (allCandidates.length === 0) return null;
+  for (let i = 0; i < CONFLICT_ZONES.length; i++) {
+    const conflict = CONFLICT_ZONES[i]!;
+    const score = countKeywordMatches(normalized, conflict.keywords ?? []);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCandidate = { label: conflict.name, lat: conflict.center[1], lon: conflict.center[0] };
+    }
+  }
 
-  return allCandidates.sort((a, b) => b.score - a.score)[0] ?? null;
+  return bestCandidate;
 }
 
 function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
