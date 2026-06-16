@@ -831,20 +831,25 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
         f.lon <= theater.bounds.east
     );
 
-    const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
-    };
-
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
-
+    // ⚡ Bolt: Consolidated 7 distinct array filters into a single pass to count aircraft types, operators, and totals.
+    // Reduces O(N) array scans from 8 to 1.
+    const byType = { fighters: 0, tankers: 0, awacs: 0, reconnaissance: 0, transport: 0, bombers: 0, drones: 0 };
     const byOperator: Record<string, number> = {};
+    let total = 0;
+
     for (const f of theaterFlights) {
+      let matchedType = false;
+      switch (f.aircraftType) {
+        case 'fighter': byType.fighters++; matchedType = true; break;
+        case 'tanker': byType.tankers++; matchedType = true; break;
+        case 'awacs': byType.awacs++; matchedType = true; break;
+        case 'reconnaissance': byType.reconnaissance++; matchedType = true; break;
+        case 'transport': byType.transport++; matchedType = true; break;
+        case 'bomber': byType.bombers++; matchedType = true; break;
+        case 'drone': byType.drones++; matchedType = true; break;
+      }
+      if (matchedType) total++;
+
       byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
     }
 
