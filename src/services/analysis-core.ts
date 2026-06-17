@@ -615,9 +615,18 @@ export function analyzeCorrelationsCore(
         });
       }
     } else {
-      const oldRelatedNews = Array.from(newsTopics.entries())
-        .filter(([k]) => market.name.toLowerCase().includes(k) || k.includes(market.symbol.toLowerCase()))
-        .reduce((sum, [, v]) => sum + v, 0);
+      // ⚡ Bolt Performance Optimization:
+      // Replaced Array.from(...).filter(...).reduce(...) with an imperative loop
+      // and hoisted market.name and market.symbol toLowerCase() calls out of the loop
+      // to avoid O(N*M) string allocations and intermediate arrays.
+      const marketNameLower = market.name.toLowerCase();
+      const marketSymbolLower = market.symbol.toLowerCase();
+      let oldRelatedNews = 0;
+      for (const [k, v] of newsTopics) {
+        if (marketNameLower.includes(k) || k.includes(marketSymbolLower)) {
+          oldRelatedNews += v;
+        }
+      }
 
       const dedupeKey = generateDedupeKey('silent_divergence', market.symbol, change);
       if (oldRelatedNews < 2 && !isRecentDuplicate(dedupeKey)) {
@@ -648,9 +657,18 @@ export function analyzeCorrelationsCore(
 
     const change = market.change ?? 0;
     if (change >= FLOW_PRICE_THRESHOLD) {
-      const relatedNews = Array.from(newsTopics.entries())
-        .filter(([k]) => market.name.toLowerCase().includes(k) || k.includes(market.symbol.toLowerCase()))
-        .reduce((sum, [, v]) => sum + v, 0);
+      // ⚡ Bolt Performance Optimization:
+      // Replaced Array.from(...).filter(...).reduce(...) with an imperative loop
+      // and hoisted market.name and market.symbol toLowerCase() calls out of the loop
+      // to avoid O(N*M) string allocations and intermediate arrays.
+      const marketNameLower = market.name.toLowerCase();
+      const marketSymbolLower = market.symbol.toLowerCase();
+      let relatedNews = 0;
+      for (const [k, v] of newsTopics) {
+        if (marketNameLower.includes(k) || k.includes(marketSymbolLower)) {
+          relatedNews += v;
+        }
+      }
 
       const dedupeKey = generateDedupeKey('flow_price_divergence', market.symbol, change);
       if (relatedNews < 2 && pipelineFlowMentions === 0 && !isRecentDuplicate(dedupeKey)) {
