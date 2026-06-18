@@ -31,42 +31,75 @@ function toTitleLower(titles: string[]): string[] {
   return titles.map(title => title.toLowerCase());
 }
 
-function detectAssetTypes(titles: string[]): AssetType[] {
-  const normalized = toTitleLower(titles);
-  const types = Object.entries(ASSET_KEYWORDS)
-    .filter(([, keywords]) =>
-      normalized.some(title => keywords.some(keyword => title.includes(keyword)))
-    )
-    .map(([type]) => type as AssetType);
+function detectAssetTypes(normalizedTitles: string[]): AssetType[] {
+  // Performance optimization: Avoid intermediate array allocations and closures
+  // from nested .some() and .filter() by using imperative loops.
+  const types: AssetType[] = [];
+  const entries = Object.entries(ASSET_KEYWORDS);
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]!;
+    const type = entry[0] as AssetType;
+    const keywords = entry[1];
+    let found = false;
+    for (let j = 0; j < normalizedTitles.length; j++) {
+      const title = normalizedTitles[j]!;
+      for (let k = 0; k < keywords.length; k++) {
+        if (title.includes(keywords[k]!)) {
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+    if (found) {
+      types.push(type);
+    }
+  }
   return types;
 }
 
-function countKeywordMatches(titles: string[], keywords: string[]): number {
-  const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+function countKeywordMatches(normalizedTitles: string[], keywords: string[]): number {
+  // Performance optimization: Replace .reduce() and .filter().length with simple loops
+  // to avoid redundant intermediate array allocations.
+  let count = 0;
+  for (let i = 0; i < keywords.length; i++) {
+    const keyword = keywords[i]!;
+    for (let j = 0; j < normalizedTitles.length; j++) {
+      if (normalizedTitles[j]!.includes(keyword)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
-function inferOrigin(titles: string[]): AssetOrigin | null {
-  const hotspotCandidates = INTEL_HOTSPOTS.map((hotspot) => ({
-    label: hotspot.name,
-    lat: hotspot.lat,
-    lon: hotspot.lon,
-    score: countKeywordMatches(titles, hotspot.keywords),
-  })).filter(candidate => candidate.score > 0);
+function inferOrigin(normalizedTitles: string[]): AssetOrigin | null {
+  // Performance optimization: Replace chained .map(), .filter(), and .sort()
+  // by keeping track of the best candidate in a single pass.
+  let bestCandidate: AssetOrigin & { score: number } | null = null;
 
-  const conflictCandidates = CONFLICT_ZONES.map((conflict) => ({
-    label: conflict.name,
-    lat: conflict.center[1],
-    lon: conflict.center[0],
-    score: countKeywordMatches(titles, conflict.keywords ?? []),
-  })).filter(candidate => candidate.score > 0);
+  for (let i = 0; i < INTEL_HOTSPOTS.length; i++) {
+    const hotspot = INTEL_HOTSPOTS[i]!;
+    const score = countKeywordMatches(normalizedTitles, hotspot.keywords);
+    if (score > 0) {
+      if (!bestCandidate || score > bestCandidate.score) {
+        bestCandidate = { label: hotspot.name, lat: hotspot.lat, lon: hotspot.lon, score };
+      }
+    }
+  }
 
-  const allCandidates = [...hotspotCandidates, ...conflictCandidates];
-  if (allCandidates.length === 0) return null;
+  for (let i = 0; i < CONFLICT_ZONES.length; i++) {
+    const conflict = CONFLICT_ZONES[i]!;
+    const score = countKeywordMatches(normalizedTitles, conflict.keywords ?? []);
+    if (score > 0) {
+      if (!bestCandidate || score > bestCandidate.score) {
+        bestCandidate = { label: conflict.name, lat: conflict.center[1], lon: conflict.center[0], score };
+      }
+    }
+  }
 
-  return allCandidates.sort((a, b) => b.score - a.score)[0] ?? null;
+  if (!bestCandidate) return null;
+  return { label: bestCandidate.label, lat: bestCandidate.lat, lon: bestCandidate.lon };
 }
 
 function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -142,10 +175,15 @@ function findNearbyAssets(origin: AssetOrigin, types: AssetType[]): RelatedAsset
 
 export function getClusterAssetContext(cluster: ClusteredEvent): RelatedAssetContext | null {
   const titles = cluster.allItems.map(item => item.title);
-  const types = detectAssetTypes(titles);
+
+  // Performance optimization: Hoist title normalization once for the entire
+  // asset evaluation process instead of repeating it in each helper function.
+  const normalizedTitles = toTitleLower(titles);
+
+  const types = detectAssetTypes(normalizedTitles);
   if (types.length === 0) return null;
 
-  const origin = inferOrigin(titles);
+  const origin = inferOrigin(normalizedTitles);
   if (!origin) return null;
 
   const assets = findNearbyAssets(origin, types);
