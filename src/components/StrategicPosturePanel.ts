@@ -178,25 +178,31 @@ export class StrategicPosturePanel extends Panel {
             v.lon <= posture.bounds!.east
         );
 
-        // Count by type
-        posture.destroyers = theaterVessels.filter((v) => v.vesselType === 'destroyer').length;
-        posture.frigates = theaterVessels.filter((v) => v.vesselType === 'frigate').length;
-        posture.carriers = theaterVessels.filter((v) => v.vesselType === 'carrier').length;
-        posture.submarines = theaterVessels.filter((v) => v.vesselType === 'submarine').length;
-        posture.patrol = theaterVessels.filter((v) => v.vesselType === 'patrol').length;
-        posture.auxiliaryVessels = theaterVessels.filter(
-          (v) => v.vesselType === 'auxiliary' || v.vesselType === 'special' || v.vesselType === 'amphibious' || v.vesselType === 'icebreaker' || v.vesselType === 'research' || v.vesselType === 'unknown'
-        ).length;
+        posture.destroyers = 0;
+        posture.frigates = 0;
+        posture.carriers = 0;
+        posture.submarines = 0;
+        posture.patrol = 0;
+        posture.auxiliaryVessels = 0;
         posture.totalVessels = theaterVessels.length;
+
+        // ⚡ Bolt optimization: Consolidate multiple O(N) array scans into a single pass
+        for (const v of theaterVessels) {
+          const type = v.vesselType;
+          if (type === 'destroyer') posture.destroyers++;
+          else if (type === 'frigate') posture.frigates++;
+          else if (type === 'carrier') posture.carriers++;
+          else if (type === 'submarine') posture.submarines++;
+          else if (type === 'patrol') posture.patrol++;
+          else if (type === 'auxiliary' || type === 'special' || type === 'amphibious' || type === 'icebreaker' || type === 'research' || type === 'unknown') posture.auxiliaryVessels++;
+
+          // Add vessel operators to byOperator
+          const op = v.operator || 'unknown';
+          posture.byOperator[op] = (posture.byOperator[op] || 0) + 1;
+        }
 
         if (theaterVessels.length > 0) {
           console.log(`[StrategicPosturePanel] ${posture.shortName}: ${theaterVessels.length} vessels`, theaterVessels.map(v => v.vesselType));
-        }
-
-        // Add vessel operators to byOperator
-        for (const v of theaterVessels) {
-          const op = v.operator || 'unknown';
-          posture.byOperator[op] = (posture.byOperator[op] || 0) + 1;
         }
       }
 

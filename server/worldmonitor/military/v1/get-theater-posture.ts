@@ -146,11 +146,15 @@ function calculatePostures(flights: RawFlight[]): TheaterPosture[] {
     );
 
     const total = theaterFlights.length;
-    const byType = {
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-    };
+    const byType = { tankers: 0, awacs: 0, fighters: 0 };
+
+    // ⚡ Bolt optimization: Consolidate multiple O(N) array scans into a single pass
+    for (let i = 0; i < theaterFlights.length; i++) {
+      const type = theaterFlights[i]!.aircraftType;
+      if (type === 'tanker') byType.tankers++;
+      else if (type === 'awacs') byType.awacs++;
+      else if (type === 'fighter') byType.fighters++;
+    }
 
     const postureLevel = total >= theater.thresholds.critical
       ? 'critical'
