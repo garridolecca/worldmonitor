@@ -1,0 +1,3 @@
+## 2024-05-18 - Replacing Array.find with Map.get for Configuration Arrays
+**Learning:** Found instances where arrays storing configurations for military operators and theaters were repeatedly queried using `Array.find` within high-frequency functions or loops (e.g., `getTheaterForFlight`, `isHomeRegion`). This caused unnecessary O(n) lookups. Replacing them with `Map.get` improves the performance to O(1).
+**Action:** When working with static, known-size configuration arrays in this codebase that are queried by unique identifiers, initialize an O(1) `Map` lookup immediately after the array definition to prevent O(N) lookup overhead in frequently called functions.
