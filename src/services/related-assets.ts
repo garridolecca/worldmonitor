@@ -31,42 +31,61 @@ function toTitleLower(titles: string[]): string[] {
   return titles.map(title => title.toLowerCase());
 }
 
+// ⚡ Bolt: Use early exits and single pass to avoid creating mapped/filtered intermediate arrays
 function detectAssetTypes(titles: string[]): AssetType[] {
   const normalized = toTitleLower(titles);
-  const types = Object.entries(ASSET_KEYWORDS)
-    .filter(([, keywords]) =>
-      normalized.some(title => keywords.some(keyword => title.includes(keyword)))
-    )
-    .map(([type]) => type as AssetType);
+  const types: AssetType[] = [];
+  const entries = Object.entries(ASSET_KEYWORDS) as [AssetType, string[]][];
+
+  for (let i = 0; i < entries.length; i++) {
+    const [type, keywords] = entries[i]!;
+    if (countKeywordMatches(normalized, keywords) > 0) {
+      types.push(type);
+    }
+  }
   return types;
 }
 
-function countKeywordMatches(titles: string[], keywords: string[]): number {
-  const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+// ⚡ Bolt: Replace O(N*M) array allocations (reduce + filter) with a single-pass imperative loop.
+function countKeywordMatches(normalizedTitles: string[], keywords: string[]): number {
+  let count = 0;
+  for (let i = 0; i < keywords.length; i++) {
+    const keyword = keywords[i]!;
+    for (let j = 0; j < normalizedTitles.length; j++) {
+      if (normalizedTitles[j]!.includes(keyword)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
+// ⚡ Bolt: Hoist string normalization and avoid intermediate array allocations with imperative loops
 function inferOrigin(titles: string[]): AssetOrigin | null {
-  const hotspotCandidates = INTEL_HOTSPOTS.map((hotspot) => ({
-    label: hotspot.name,
-    lat: hotspot.lat,
-    lon: hotspot.lon,
-    score: countKeywordMatches(titles, hotspot.keywords),
-  })).filter(candidate => candidate.score > 0);
+  const normalized = toTitleLower(titles);
 
-  const conflictCandidates = CONFLICT_ZONES.map((conflict) => ({
-    label: conflict.name,
-    lat: conflict.center[1],
-    lon: conflict.center[0],
-    score: countKeywordMatches(titles, conflict.keywords ?? []),
-  })).filter(candidate => candidate.score > 0);
+  let bestScore = 0;
+  let bestCandidate: AssetOrigin | null = null;
 
-  const allCandidates = [...hotspotCandidates, ...conflictCandidates];
-  if (allCandidates.length === 0) return null;
+  for (let i = 0; i < INTEL_HOTSPOTS.length; i++) {
+    const hotspot = INTEL_HOTSPOTS[i]!;
+    const score = countKeywordMatches(normalized, hotspot.keywords);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCandidate = { label: hotspot.name, lat: hotspot.lat, lon: hotspot.lon };
+    }
+  }
 
-  return allCandidates.sort((a, b) => b.score - a.score)[0] ?? null;
+  for (let i = 0; i < CONFLICT_ZONES.length; i++) {
+    const conflict = CONFLICT_ZONES[i]!;
+    const score = countKeywordMatches(normalized, conflict.keywords ?? []);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCandidate = { label: conflict.name, lat: conflict.center[1], lon: conflict.center[0] };
+    }
+  }
+
+  return bestCandidate;
 }
 
 function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
