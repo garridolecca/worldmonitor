@@ -31,37 +31,66 @@ function toTitleLower(titles: string[]): string[] {
   return titles.map(title => title.toLowerCase());
 }
 
+// ⚡ Bolt Optimization: Uses imperative loops for early return and eliminates array allocations
 function detectAssetTypes(titles: string[]): AssetType[] {
   const normalized = toTitleLower(titles);
-  const types = Object.entries(ASSET_KEYWORDS)
-    .filter(([, keywords]) =>
-      normalized.some(title => keywords.some(keyword => title.includes(keyword)))
-    )
-    .map(([type]) => type as AssetType);
+  const types: AssetType[] = [];
+  const entries = Object.entries(ASSET_KEYWORDS);
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]!;
+    const type = entry[0] as AssetType;
+    const keywords = entry[1];
+
+    let matched = false;
+    for (let j = 0; j < normalized.length; j++) {
+      const title = normalized[j]!;
+      for (let k = 0; k < keywords.length; k++) {
+        if (title.includes(keywords[k]!)) {
+          matched = true;
+          break;
+        }
+      }
+      if (matched) break;
+    }
+    if (matched) types.push(type);
+  }
   return types;
 }
 
-function countKeywordMatches(titles: string[], keywords: string[]): number {
-  const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+// ⚡ Bolt Optimization: Uses a single O(N*M) loop instead of multiple allocations and .filter scans
+function countKeywordMatches(normalizedTitles: string[], keywords: string[]): number {
+  let count = 0;
+  for (let i = 0; i < normalizedTitles.length; i++) {
+    const title = normalizedTitles[i]!;
+    for (let j = 0; j < keywords.length; j++) {
+      if (title.includes(keywords[j]!)) count++;
+    }
+  }
+  return count;
 }
 
+// ⚡ Bolt Optimization: Hoists toTitleLower string normalization outside loop, and uses a single pass imperative loop
 function inferOrigin(titles: string[]): AssetOrigin | null {
-  const hotspotCandidates = INTEL_HOTSPOTS.map((hotspot) => ({
-    label: hotspot.name,
-    lat: hotspot.lat,
-    lon: hotspot.lon,
-    score: countKeywordMatches(titles, hotspot.keywords),
-  })).filter(candidate => candidate.score > 0);
+  const normalizedTitles = toTitleLower(titles);
 
-  const conflictCandidates = CONFLICT_ZONES.map((conflict) => ({
-    label: conflict.name,
-    lat: conflict.center[1],
-    lon: conflict.center[0],
-    score: countKeywordMatches(titles, conflict.keywords ?? []),
-  })).filter(candidate => candidate.score > 0);
+  const hotspotCandidates: { label: string; lat: number; lon: number; score: number }[] = [];
+  for (let i = 0; i < INTEL_HOTSPOTS.length; i++) {
+    const hotspot = INTEL_HOTSPOTS[i]!;
+    const score = countKeywordMatches(normalizedTitles, hotspot.keywords);
+    if (score > 0) {
+      hotspotCandidates.push({ label: hotspot.name, lat: hotspot.lat, lon: hotspot.lon, score });
+    }
+  }
+
+  const conflictCandidates: { label: string; lat: number; lon: number; score: number }[] = [];
+  for (let i = 0; i < CONFLICT_ZONES.length; i++) {
+    const conflict = CONFLICT_ZONES[i]!;
+    const score = countKeywordMatches(normalizedTitles, conflict.keywords ?? []);
+    if (score > 0) {
+      conflictCandidates.push({ label: conflict.name, lat: conflict.center[1], lon: conflict.center[0], score });
+    }
+  }
 
   const allCandidates = [...hotspotCandidates, ...conflictCandidates];
   if (allCandidates.length === 0) return null;
