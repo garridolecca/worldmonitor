@@ -31,42 +31,68 @@ function toTitleLower(titles: string[]): string[] {
   return titles.map(title => title.toLowerCase());
 }
 
-function detectAssetTypes(titles: string[]): AssetType[] {
-  const normalized = toTitleLower(titles);
-  const types = Object.entries(ASSET_KEYWORDS)
-    .filter(([, keywords]) =>
-      normalized.some(title => keywords.some(keyword => title.includes(keyword)))
-    )
-    .map(([type]) => type as AssetType);
+// ⚡ Bolt Performance: Replace multi-pass filter/some/map chain with a single-pass loop avoiding intermediate array allocations.
+function detectAssetTypes(normalizedTitles: string[]): AssetType[] {
+  const types: AssetType[] = [];
+  const entries = Object.entries(ASSET_KEYWORDS) as [AssetType, string[]][];
+  for (let k = 0; k < entries.length; k++) {
+    const entry = entries[k]!;
+    const type = entry[0];
+    const keywords = entry[1];
+    let match = false;
+    for (let i = 0; i < normalizedTitles.length; i++) {
+      const title = normalizedTitles[i]!;
+      for (let j = 0; j < keywords.length; j++) {
+        if (title.includes(keywords[j]!)) {
+          match = true;
+          break;
+        }
+      }
+      if (match) break;
+    }
+    if (match) types.push(type);
+  }
   return types;
 }
 
-function countKeywordMatches(titles: string[], keywords: string[]): number {
-  const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+// ⚡ Bolt Performance: Replace .reduce() and .filter() with a single-pass loop, reducing intermediate allocations.
+function countKeywordMatches(normalizedTitles: string[], keywords: string[]): number {
+  let count = 0;
+  for (let i = 0; i < keywords.length; i++) {
+    const kw = keywords[i]!;
+    for (let j = 0; j < normalizedTitles.length; j++) {
+      if (normalizedTitles[j]!.includes(kw)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
-function inferOrigin(titles: string[]): AssetOrigin | null {
-  const hotspotCandidates = INTEL_HOTSPOTS.map((hotspot) => ({
-    label: hotspot.name,
-    lat: hotspot.lat,
-    lon: hotspot.lon,
-    score: countKeywordMatches(titles, hotspot.keywords),
-  })).filter(candidate => candidate.score > 0);
+// ⚡ Bolt Performance: Refactored to use a single pass evaluating the highest score directly, avoiding mapped candidate array allocations.
+function inferOrigin(normalizedTitles: string[]): AssetOrigin | null {
+  let bestScore = 0;
+  let bestOrigin: AssetOrigin | null = null;
 
-  const conflictCandidates = CONFLICT_ZONES.map((conflict) => ({
-    label: conflict.name,
-    lat: conflict.center[1],
-    lon: conflict.center[0],
-    score: countKeywordMatches(titles, conflict.keywords ?? []),
-  })).filter(candidate => candidate.score > 0);
+  for (let i = 0; i < INTEL_HOTSPOTS.length; i++) {
+    const hotspot = INTEL_HOTSPOTS[i]!;
+    const score = countKeywordMatches(normalizedTitles, hotspot.keywords);
+    if (score > bestScore) {
+      bestScore = score;
+      bestOrigin = { label: hotspot.name, lat: hotspot.lat, lon: hotspot.lon };
+    }
+  }
 
-  const allCandidates = [...hotspotCandidates, ...conflictCandidates];
-  if (allCandidates.length === 0) return null;
+  for (let i = 0; i < CONFLICT_ZONES.length; i++) {
+    const conflict = CONFLICT_ZONES[i]!;
+    const score = countKeywordMatches(normalizedTitles, conflict.keywords ?? []);
+    if (score > bestScore) {
+      bestScore = score;
+      bestOrigin = { label: conflict.name, lat: conflict.center[1], lon: conflict.center[0] };
+    }
+  }
 
-  return allCandidates.sort((a, b) => b.score - a.score)[0] ?? null;
+  return bestOrigin;
 }
 
 function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -142,10 +168,12 @@ function findNearbyAssets(origin: AssetOrigin, types: AssetType[]): RelatedAsset
 
 export function getClusterAssetContext(cluster: ClusteredEvent): RelatedAssetContext | null {
   const titles = cluster.allItems.map(item => item.title);
-  const types = detectAssetTypes(titles);
+  const normalizedTitles = toTitleLower(titles);
+
+  const types = detectAssetTypes(normalizedTitles);
   if (types.length === 0) return null;
 
-  const origin = inferOrigin(titles);
+  const origin = inferOrigin(normalizedTitles);
   if (!origin) return null;
 
   const assets = findNearbyAssets(origin, types);
