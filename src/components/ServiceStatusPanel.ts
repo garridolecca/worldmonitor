@@ -141,9 +141,17 @@ export class ServiceStatusPanel extends Panel {
   }
 
   private buildSummary(services: ServiceStatus[]): HTMLElement {
-    const operational = services.filter(s => s.status === 'operational').length;
-    const degraded = services.filter(s => s.status === 'degraded').length;
-    const outage = services.filter(s => s.status === 'outage').length;
+    // Optimization: Replace 3 redundant O(N) array scans with a single pass to count statuses
+    let operational = 0;
+    let degraded = 0;
+    let outage = 0;
+
+    for (const service of services) {
+      const status = service?.status;
+      if (status === 'operational') operational++;
+      else if (status === 'degraded') degraded++;
+      else if (status === 'outage') outage++;
+    }
 
     return h('div', { className: 'service-status-summary' },
       h('div', { className: 'summary-item operational' },
