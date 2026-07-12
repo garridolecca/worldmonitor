@@ -494,8 +494,20 @@ export class InsightsPanel extends Panel {
       return '';
     }
 
-    const negative = sentiments.filter(s => s.label === 'negative').length;
-    const positive = sentiments.filter(s => s.label === 'positive').length;
+    // Performance optimization: Consolidated multiple .filter().length passes into a single O(N) loop
+    // This avoids intermediate array allocations and redundant iterations over the sentiments array
+    let negative = 0;
+    let positive = 0;
+
+    for (let i = 0; i < sentiments.length; i++) {
+      const label = sentiments[i]!.label;
+      if (label === 'negative') {
+        negative++;
+      } else if (label === 'positive') {
+        positive++;
+      }
+    }
+
     const neutral = sentiments.length - negative - positive;
 
     const total = sentiments.length;
@@ -531,9 +543,18 @@ export class InsightsPanel extends Panel {
   }
 
   private renderStats(clusters: ClusteredEvent[]): string {
-    const multiSource = clusters.filter(c => c.sourceCount >= 2).length;
-    const fastMoving = clusters.filter(c => c.velocity && c.velocity.level !== 'normal').length;
-    const alerts = clusters.filter(c => c.isAlert).length;
+    // Performance optimization: Consolidated three separate .filter().length scans into a single O(N) loop
+    // This removes intermediate array allocations and redundant iterations
+    let multiSource = 0;
+    let fastMoving = 0;
+    let alerts = 0;
+
+    for (let i = 0; i < clusters.length; i++) {
+      const c = clusters[i]!;
+      if (c.sourceCount >= 2) multiSource++;
+      if (c.velocity && c.velocity.level !== 'normal') fastMoving++;
+      if (c.isAlert) alerts++;
+    }
 
     return `
       <div class="insights-stats">
