@@ -823,29 +823,39 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
   const summaries: TheaterPostureSummary[] = [];
 
   for (const theater of POSTURE_THEATERS) {
-    const theaterFlights = flights.filter(
-      (f) =>
+    // ⚡ Bolt: Single pass over flights to calculate type counts and operators
+    // Replaces O(N*8) redundant array creations with O(N) single-pass
+    const byType = {
+      fighters: 0,
+      tankers: 0,
+      awacs: 0,
+      reconnaissance: 0,
+      transport: 0,
+      bombers: 0,
+      drones: 0,
+    };
+    const byOperator: Record<string, number> = {};
+    let total = 0;
+
+    for (let i = 0; i < flights.length; i++) {
+      const f = flights[i]!;
+      if (
         f.lat >= theater.bounds.south &&
         f.lat <= theater.bounds.north &&
         f.lon >= theater.bounds.west &&
         f.lon <= theater.bounds.east
-    );
+      ) {
+        byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
+        total++;
 
-    const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
-    };
-
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
-
-    const byOperator: Record<string, number> = {};
-    for (const f of theaterFlights) {
-      byOperator[f.operator] = (byOperator[f.operator] || 0) + 1;
+        if (f.aircraftType === 'fighter') byType.fighters++;
+        else if (f.aircraftType === 'tanker') byType.tankers++;
+        else if (f.aircraftType === 'awacs') byType.awacs++;
+        else if (f.aircraftType === 'reconnaissance') byType.reconnaissance++;
+        else if (f.aircraftType === 'transport') byType.transport++;
+        else if (f.aircraftType === 'bomber') byType.bombers++;
+        else if (f.aircraftType === 'drone') byType.drones++;
+      }
     }
 
     const postureLevel: 'normal' | 'elevated' | 'critical' =
