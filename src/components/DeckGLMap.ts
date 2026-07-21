@@ -3379,23 +3379,36 @@ export class DeckGLMap {
 
     // Update hotspot "breaking" indicators based on recent news
     const breakingKeywords = new Set<string>();
-    const recentNews = news.filter(n =>
-      Date.now() - n.pubDate.getTime() < 2 * 60 * 60 * 1000 // Last 2 hours
-    );
-
-    // Count matches per hotspot for escalation tracking
     const matchCounts = new Map<string, number>();
+    const cutoff = Date.now() - 2 * 60 * 60 * 1000; // Last 2 hours
 
-    recentNews.forEach(item => {
-      this.hotspots.forEach(hotspot => {
-        if (hotspot.keywords.some(kw =>
-          item.title.toLowerCase().includes(kw.toLowerCase())
-        )) {
-          breakingKeywords.add(hotspot.id);
-          matchCounts.set(hotspot.id, (matchCounts.get(hotspot.id) || 0) + 1);
+    // Performance optimization: Hoist lowercasing of hotspot keywords to avoid O(N*M) redundant string allocations in the hot loop
+    const hotspotsLower = this.hotspots.map(h => ({
+      id: h.id,
+      keywordsLower: h.keywords.map(kw => kw.toLowerCase())
+    }));
+
+    // Performance optimization: Single pass over news and pre-lowercased keywords using imperative loops instead of .filter(), .forEach(), and .some()
+    for (let i = 0; i < news.length; i++) {
+      const item = news[i]!;
+      if (item.pubDate.getTime() >= cutoff) {
+        const titleLower = item.title.toLowerCase();
+        for (let j = 0; j < hotspotsLower.length; j++) {
+          const hotspot = hotspotsLower[j]!;
+          let match = false;
+          for (let k = 0; k < hotspot.keywordsLower.length; k++) {
+            if (titleLower.includes(hotspot.keywordsLower[k]!)) {
+              match = true;
+              break;
+            }
+          }
+          if (match) {
+            breakingKeywords.add(hotspot.id);
+            matchCounts.set(hotspot.id, (matchCounts.get(hotspot.id) || 0) + 1);
+          }
         }
-      });
-    });
+      }
+    }
 
     this.hotspots.forEach(h => {
       h.hasBreaking = breakingKeywords.has(h.id);
