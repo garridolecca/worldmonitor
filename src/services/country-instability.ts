@@ -402,9 +402,21 @@ function calcUnrestScore(data: CountryData, countryCode: string): number {
 
   let outageBoost = 0;
   if (data.outages.length > 0) {
-    const totalOutages = data.outages.filter(o => o.severity === 'total').length;
-    const majorOutages = data.outages.filter(o => o.severity === 'major').length;
-    const partialOutages = data.outages.filter(o => o.severity === 'partial').length;
+    // Performance optimization: Combine multiple O(N) outage scans into a single pass
+    let totalOutages = 0;
+    let majorOutages = 0;
+    let partialOutages = 0;
+
+    for (let i = 0; i < data.outages.length; i++) {
+      const sev = data.outages[i]!.severity;
+      if (sev === 'total') {
+        totalOutages++;
+      } else if (sev === 'major') {
+        majorOutages++;
+      } else if (sev === 'partial') {
+        partialOutages++;
+      }
+    }
 
     outageBoost = Math.min(50, totalOutages * 30 + majorOutages * 15 + partialOutages * 5);
   }
@@ -418,10 +430,23 @@ function calcConflictScore(data: CountryData, countryCode: string): number {
 
   if (events.length === 0 && !data.hapiSummary) return 0;
 
-  const battleCount = events.filter(e => e.eventType === 'battle').length;
-  const explosionCount = events.filter(e => e.eventType === 'explosion' || e.eventType === 'remote_violence').length;
-  const civilianCount = events.filter(e => e.eventType === 'violence_against_civilians').length;
-  const totalFatalities = events.reduce((sum, e) => sum + e.fatalities, 0);
+  // Performance optimization: Combine multiple O(N) event scans into a single pass
+  let battleCount = 0;
+  let explosionCount = 0;
+  let civilianCount = 0;
+  let totalFatalities = 0;
+
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    totalFatalities += e.fatalities;
+    if (e.eventType === 'battle') {
+      battleCount++;
+    } else if (e.eventType === 'explosion' || e.eventType === 'remote_violence') {
+      explosionCount++;
+    } else if (e.eventType === 'violence_against_civilians') {
+      civilianCount++;
+    }
+  }
 
   const eventScore = Math.min(50, (battleCount * 3 + explosionCount * 4 + civilianCount * 5) * multiplier);
   const fatalityScore = Math.min(40, Math.sqrt(totalFatalities) * 5 * multiplier);
