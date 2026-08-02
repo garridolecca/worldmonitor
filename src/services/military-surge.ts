@@ -64,6 +64,9 @@ const OPERATOR_HOMES: OperatorHomeRegions[] = [
   { operator: 'gaf', country: 'Germany', homeRegions: ['baltics'], alertThreshold: 3 },
 ];
 
+// Map for O(1) lookups in high-volume hot paths
+const OPERATOR_HOMES_MAP = new Map(OPERATOR_HOMES.map(o => [o.operator, o]));
+
 export interface ForeignPresenceAlert {
   id: string;
   operator: MilitaryOperator;
@@ -149,6 +152,9 @@ const THEATERS: MilitaryTheater[] = [
     centerLon: 40.0,
   },
 ];
+
+// Map for O(1) lookups in high-volume hot paths
+const THEATERS_MAP = new Map(THEATERS.map(t => [t.id, t]));
 
 const SURGE_THRESHOLD = 2.0;
 const BASELINE_WINDOW_HOURS = 48;
@@ -281,7 +287,8 @@ export function analyzeFlightsForSurge(flights: MilitaryFlight[]): SurgeAlert[] 
   const newAlerts: SurgeAlert[] = [];
 
   for (const [theaterId, theaterFlightList] of theaterFlights) {
-    const theater = THEATERS.find(t => t.id === theaterId);
+    // Use O(1) map lookup for high-volume hot paths
+    const theater = THEATERS_MAP.get(theaterId);
     if (!theater) continue;
 
     let transportCount = 0;
@@ -398,18 +405,21 @@ function getRegionForPosition(lat: number, lon: number): GeoRegion | null {
 }
 
 function isHomeRegion(operator: MilitaryOperator, regionId: string): boolean {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  // Use O(1) map lookup for high-volume hot paths
+  const config = OPERATOR_HOMES_MAP.get(operator);
   if (!config) return true; // Unknown operator - don't alert
   return config.homeRegions.includes(regionId);
 }
 
 function getOperatorThreshold(operator: MilitaryOperator): number {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  // Use O(1) map lookup for high-volume hot paths
+  const config = OPERATOR_HOMES_MAP.get(operator);
   return config?.alertThreshold ?? 3;
 }
 
 function getOperatorCountry(operator: MilitaryOperator): string {
-  const config = OPERATOR_HOMES.find(o => o.operator === operator);
+  // Use O(1) map lookup for high-volume hot paths
+  const config = OPERATOR_HOMES_MAP.get(operator);
   return config?.country ?? 'Unknown';
 }
 
@@ -783,6 +793,9 @@ const POSTURE_THEATERS: PostureTheater[] = [
   },
 ];
 
+// Map for O(1) lookups in high-volume hot paths
+const POSTURE_THEATERS_MAP = new Map(POSTURE_THEATERS.map(t => [t.id, t]));
+
 export interface TheaterPostureSummary {
   theaterId: string;
   theaterName: string;
@@ -942,7 +955,8 @@ const TARGET_NATION_CODES: Record<string, string> = {
  */
 export function recalcPostureWithVessels(postures: TheaterPostureSummary[]): void {
   for (const p of postures) {
-    const theater = POSTURE_THEATERS.find((t) => t.id === p.theaterId);
+    // Use O(1) map lookup for high-volume hot paths
+    const theater = POSTURE_THEATERS_MAP.get(p.theaterId);
     if (!theater) continue;
 
     const airLevel: 0 | 1 | 2 =
