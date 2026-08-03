@@ -358,9 +358,22 @@ export function groupByCountry(events: UcdpGeoEvent[]): Map<string, UcdpGeoEvent
 }
 
 export function groupByType(events: UcdpGeoEvent[]): Record<string, UcdpGeoEvent[]> {
+  const stateBased: UcdpGeoEvent[] = [];
+  const nonState: UcdpGeoEvent[] = [];
+  const oneSided: UcdpGeoEvent[] = [];
+
+  // Optimize: single loop instead of 3 filter passes
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    const t = e.type_of_violence;
+    if (t === 'state-based') stateBased.push(e);
+    else if (t === 'non-state') nonState.push(e);
+    else if (t === 'one-sided') oneSided.push(e);
+  }
+
   return {
-    'state-based': events.filter(e => e.type_of_violence === 'state-based'),
-    'non-state': events.filter(e => e.type_of_violence === 'non-state'),
-    'one-sided': events.filter(e => e.type_of_violence === 'one-sided'),
+    'state-based': stateBased,
+    'non-state': nonState,
+    'one-sided': oneSided,
   };
 }
