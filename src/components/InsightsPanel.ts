@@ -139,46 +139,55 @@ export class InsightsPanel extends Panel {
     // Source confirmation (base signal)
     score += cluster.sourceCount * 10;
 
+    // Helper to count matches efficiently without allocating intermediate arrays
+    const countMatches = (keywords: readonly string[]): number => {
+      let count = 0;
+      for (let i = 0; i < keywords.length; i++) {
+        if (titleLower.includes(keywords[i]!)) count++;
+      }
+      return count;
+    };
+
     // Violence/casualty keywords: highest priority (+100 base, +25 per match)
     // "Pools of blood" type stories should always surface
-    const violenceMatches = InsightsPanel.VIOLENCE_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (violenceMatches.length > 0) {
-      score += 100 + (violenceMatches.length * 25);
+    const violenceMatches = countMatches(InsightsPanel.VIOLENCE_KEYWORDS);
+    if (violenceMatches > 0) {
+      score += 100 + (violenceMatches * 25);
     }
 
     // Military keywords: highest priority (+80 base, +20 per match)
-    const militaryMatches = InsightsPanel.MILITARY_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (militaryMatches.length > 0) {
-      score += 80 + (militaryMatches.length * 20);
+    const militaryMatches = countMatches(InsightsPanel.MILITARY_KEYWORDS);
+    if (militaryMatches > 0) {
+      score += 80 + (militaryMatches * 20);
     }
 
     // Civil unrest: high priority (+70 base, +18 per match)
-    const unrestMatches = InsightsPanel.UNREST_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (unrestMatches.length > 0) {
-      score += 70 + (unrestMatches.length * 18);
+    const unrestMatches = countMatches(InsightsPanel.UNREST_KEYWORDS);
+    if (unrestMatches > 0) {
+      score += 70 + (unrestMatches * 18);
     }
 
     // Flashpoint keywords: high priority (+60 base, +15 per match)
-    const flashpointMatches = InsightsPanel.FLASHPOINT_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (flashpointMatches.length > 0) {
-      score += 60 + (flashpointMatches.length * 15);
+    const flashpointMatches = countMatches(InsightsPanel.FLASHPOINT_KEYWORDS);
+    if (flashpointMatches > 0) {
+      score += 60 + (flashpointMatches * 15);
     }
 
     // COMBO BONUS: Violence/unrest + flashpoint location = critical story
     // e.g., "Iran protests" + "blood" = huge boost
-    if ((violenceMatches.length > 0 || unrestMatches.length > 0) && flashpointMatches.length > 0) {
+    if ((violenceMatches > 0 || unrestMatches > 0) && flashpointMatches > 0) {
       score *= 1.5; // 50% bonus for flashpoint unrest
     }
 
     // Crisis keywords: moderate priority (+30 base, +10 per match)
-    const crisisMatches = InsightsPanel.CRISIS_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (crisisMatches.length > 0) {
-      score += 30 + (crisisMatches.length * 10);
+    const crisisMatches = countMatches(InsightsPanel.CRISIS_KEYWORDS);
+    if (crisisMatches > 0) {
+      score += 30 + (crisisMatches * 10);
     }
 
     // Demote business/tech news that happens to contain military words
-    const demoteMatches = InsightsPanel.DEMOTE_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (demoteMatches.length > 0) {
+    const demoteMatches = countMatches(InsightsPanel.DEMOTE_KEYWORDS);
+    if (demoteMatches > 0) {
       score *= 0.3; // Heavy penalty for business context
     }
 
