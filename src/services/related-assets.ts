@@ -41,32 +41,45 @@ function detectAssetTypes(titles: string[]): AssetType[] {
   return types;
 }
 
-function countKeywordMatches(titles: string[], keywords: string[]): number {
-  const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+// ⚡ Bolt Performance Optimization: Replace .reduce() and .filter().length with nested imperative loops to avoid redundant array allocations and string normalization per iteration.
+function countKeywordMatches(normalizedTitles: string[], keywords: string[]): number {
+  let count = 0;
+  for (let i = 0; i < keywords.length; i++) {
+    const keyword = keywords[i]!;
+    for (let j = 0; j < normalizedTitles.length; j++) {
+      if (normalizedTitles[j]!.includes(keyword)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
+// ⚡ Bolt Performance Optimization: Replace .map().filter().sort() array chains with an imperative loop that tracks the best candidate dynamically, avoiding intermediate allocations and O(N*M) redundant string normalization.
 function inferOrigin(titles: string[]): AssetOrigin | null {
-  const hotspotCandidates = INTEL_HOTSPOTS.map((hotspot) => ({
-    label: hotspot.name,
-    lat: hotspot.lat,
-    lon: hotspot.lon,
-    score: countKeywordMatches(titles, hotspot.keywords),
-  })).filter(candidate => candidate.score > 0);
+  const normalized = toTitleLower(titles);
+  let bestCandidate: AssetOrigin | null = null;
+  let maxScore = 0;
 
-  const conflictCandidates = CONFLICT_ZONES.map((conflict) => ({
-    label: conflict.name,
-    lat: conflict.center[1],
-    lon: conflict.center[0],
-    score: countKeywordMatches(titles, conflict.keywords ?? []),
-  })).filter(candidate => candidate.score > 0);
+  for (let i = 0; i < INTEL_HOTSPOTS.length; i++) {
+    const hotspot = INTEL_HOTSPOTS[i]!;
+    const score = countKeywordMatches(normalized, hotspot.keywords);
+    if (score > maxScore) {
+      maxScore = score;
+      bestCandidate = { label: hotspot.name, lat: hotspot.lat, lon: hotspot.lon };
+    }
+  }
 
-  const allCandidates = [...hotspotCandidates, ...conflictCandidates];
-  if (allCandidates.length === 0) return null;
+  for (let i = 0; i < CONFLICT_ZONES.length; i++) {
+    const conflict = CONFLICT_ZONES[i]!;
+    const score = countKeywordMatches(normalized, conflict.keywords ?? []);
+    if (score > maxScore) {
+      maxScore = score;
+      bestCandidate = { label: conflict.name, lat: conflict.center[1], lon: conflict.center[0] };
+    }
+  }
 
-  return allCandidates.sort((a, b) => b.score - a.score)[0] ?? null;
+  return bestCandidate;
 }
 
 function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
