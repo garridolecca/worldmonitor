@@ -140,45 +140,69 @@ export class InsightsPanel extends Panel {
     score += cluster.sourceCount * 10;
 
     // Violence/casualty keywords: highest priority (+100 base, +25 per match)
+
+    // Performance optimization: Extracted multiple .filter(kw => title.includes(kw)).length
+    // into a unified loop structure with O(1) manual counters. This avoids multiple
+    // O(N) array scans and intermediate array allocations during the scoring hot path.
+    let violenceMatches = 0;
+    let militaryMatches = 0;
+    let unrestMatches = 0;
+    let flashpointMatches = 0;
+    let crisisMatches = 0;
+    let demoteMatches = 0;
+
+    for (let i = 0; i < InsightsPanel.VIOLENCE_KEYWORDS.length; i++) {
+      if (titleLower.includes(InsightsPanel.VIOLENCE_KEYWORDS[i]!)) violenceMatches++;
+    }
+    for (let i = 0; i < InsightsPanel.MILITARY_KEYWORDS.length; i++) {
+      if (titleLower.includes(InsightsPanel.MILITARY_KEYWORDS[i]!)) militaryMatches++;
+    }
+    for (let i = 0; i < InsightsPanel.UNREST_KEYWORDS.length; i++) {
+      if (titleLower.includes(InsightsPanel.UNREST_KEYWORDS[i]!)) unrestMatches++;
+    }
+    for (let i = 0; i < InsightsPanel.FLASHPOINT_KEYWORDS.length; i++) {
+      if (titleLower.includes(InsightsPanel.FLASHPOINT_KEYWORDS[i]!)) flashpointMatches++;
+    }
+    for (let i = 0; i < InsightsPanel.CRISIS_KEYWORDS.length; i++) {
+      if (titleLower.includes(InsightsPanel.CRISIS_KEYWORDS[i]!)) crisisMatches++;
+    }
+    for (let i = 0; i < InsightsPanel.DEMOTE_KEYWORDS.length; i++) {
+      if (titleLower.includes(InsightsPanel.DEMOTE_KEYWORDS[i]!)) demoteMatches++;
+    }
+
     // "Pools of blood" type stories should always surface
-    const violenceMatches = InsightsPanel.VIOLENCE_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (violenceMatches.length > 0) {
-      score += 100 + (violenceMatches.length * 25);
+    if (violenceMatches > 0) {
+      score += 100 + (violenceMatches * 25);
     }
 
     // Military keywords: highest priority (+80 base, +20 per match)
-    const militaryMatches = InsightsPanel.MILITARY_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (militaryMatches.length > 0) {
-      score += 80 + (militaryMatches.length * 20);
+    if (militaryMatches > 0) {
+      score += 80 + (militaryMatches * 20);
     }
 
     // Civil unrest: high priority (+70 base, +18 per match)
-    const unrestMatches = InsightsPanel.UNREST_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (unrestMatches.length > 0) {
-      score += 70 + (unrestMatches.length * 18);
+    if (unrestMatches > 0) {
+      score += 70 + (unrestMatches * 18);
     }
 
     // Flashpoint keywords: high priority (+60 base, +15 per match)
-    const flashpointMatches = InsightsPanel.FLASHPOINT_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (flashpointMatches.length > 0) {
-      score += 60 + (flashpointMatches.length * 15);
+    if (flashpointMatches > 0) {
+      score += 60 + (flashpointMatches * 15);
     }
 
     // COMBO BONUS: Violence/unrest + flashpoint location = critical story
     // e.g., "Iran protests" + "blood" = huge boost
-    if ((violenceMatches.length > 0 || unrestMatches.length > 0) && flashpointMatches.length > 0) {
+    if ((violenceMatches > 0 || unrestMatches > 0) && flashpointMatches > 0) {
       score *= 1.5; // 50% bonus for flashpoint unrest
     }
 
     // Crisis keywords: moderate priority (+30 base, +10 per match)
-    const crisisMatches = InsightsPanel.CRISIS_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (crisisMatches.length > 0) {
-      score += 30 + (crisisMatches.length * 10);
+    if (crisisMatches > 0) {
+      score += 30 + (crisisMatches * 10);
     }
 
     // Demote business/tech news that happens to contain military words
-    const demoteMatches = InsightsPanel.DEMOTE_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (demoteMatches.length > 0) {
+    if (demoteMatches > 0) {
       score *= 0.3; // Heavy penalty for business context
     }
 
@@ -494,8 +518,13 @@ export class InsightsPanel extends Panel {
       return '';
     }
 
-    const negative = sentiments.filter(s => s.label === 'negative').length;
-    const positive = sentiments.filter(s => s.label === 'positive').length;
+    // Performance optimization: Replaced double .filter().length scans with a single O(N) loop
+    let negative = 0;
+    let positive = 0;
+    for (let i = 0; i < sentiments.length; i++) {
+      if (sentiments[i]!.label === 'negative') negative++;
+      else if (sentiments[i]!.label === 'positive') positive++;
+    }
     const neutral = sentiments.length - negative - positive;
 
     const total = sentiments.length;
@@ -531,9 +560,18 @@ export class InsightsPanel extends Panel {
   }
 
   private renderStats(clusters: ClusteredEvent[]): string {
-    const multiSource = clusters.filter(c => c.sourceCount >= 2).length;
-    const fastMoving = clusters.filter(c => c.velocity && c.velocity.level !== 'normal').length;
-    const alerts = clusters.filter(c => c.isAlert).length;
+    // Performance optimization: Replaced multiple declarative .filter().length
+    // assignments with a single imperative loop to prevent intermediate array creation
+    let multiSource = 0;
+    let fastMoving = 0;
+    let alerts = 0;
+
+    for (let i = 0; i < clusters.length; i++) {
+      const c = clusters[i]!;
+      if (c.sourceCount >= 2) multiSource++;
+      if (c.velocity && c.velocity.level !== 'normal') fastMoving++;
+      if (c.isAlert) alerts++;
+    }
 
     return `
       <div class="insights-stats">
