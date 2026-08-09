@@ -41,26 +41,38 @@ function detectAssetTypes(titles: string[]): AssetType[] {
   return types;
 }
 
-function countKeywordMatches(titles: string[], keywords: string[]): number {
-  const normalized = toTitleLower(titles);
-  return keywords.reduce((count, keyword) => {
-    return count + normalized.filter(title => title.includes(keyword)).length;
-  }, 0);
+function countKeywordMatches(normalizedTitles: string[], keywords: string[]): number {
+  // Performance optimization: Converted reduce and .filter().length down into imperative loops
+  // avoiding intermediate O(N) filtering operations and closure allocations inside inner loops.
+  let count = 0;
+  for (let i = 0; i < keywords.length; i++) {
+    const keyword = keywords[i]!;
+    for (let j = 0; j < normalizedTitles.length; j++) {
+      if (normalizedTitles[j]!.includes(keyword)) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
 function inferOrigin(titles: string[]): AssetOrigin | null {
+  // Performance optimization: Hoisted toTitleLower to be executed only once
+  // instead of allocating M copies over N loop iterations.
+  const normalizedTitles = toTitleLower(titles);
+
   const hotspotCandidates = INTEL_HOTSPOTS.map((hotspot) => ({
     label: hotspot.name,
     lat: hotspot.lat,
     lon: hotspot.lon,
-    score: countKeywordMatches(titles, hotspot.keywords),
+    score: countKeywordMatches(normalizedTitles, hotspot.keywords),
   })).filter(candidate => candidate.score > 0);
 
   const conflictCandidates = CONFLICT_ZONES.map((conflict) => ({
     label: conflict.name,
     lat: conflict.center[1],
     lon: conflict.center[0],
-    score: countKeywordMatches(titles, conflict.keywords ?? []),
+    score: countKeywordMatches(normalizedTitles, conflict.keywords ?? []),
   })).filter(candidate => candidate.score > 0);
 
   const allCandidates = [...hotspotCandidates, ...conflictCandidates];
