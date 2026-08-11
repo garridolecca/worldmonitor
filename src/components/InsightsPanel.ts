@@ -531,9 +531,17 @@ export class InsightsPanel extends Panel {
   }
 
   private renderStats(clusters: ClusteredEvent[]): string {
-    const multiSource = clusters.filter(c => c.sourceCount >= 2).length;
-    const fastMoving = clusters.filter(c => c.velocity && c.velocity.level !== 'normal').length;
-    const alerts = clusters.filter(c => c.isAlert).length;
+    // ⚡ Bolt: Consolidated multiple .filter() calls into a single loop to reduce allocations and redundant scans
+    let multiSource = 0;
+    let fastMoving = 0;
+    let alerts = 0;
+
+    for (let i = 0; i < clusters.length; i++) {
+      const c = clusters[i]!;
+      if (c.sourceCount >= 2) multiSource++;
+      if (c.velocity && c.velocity.level !== 'normal') fastMoving++;
+      if (c.isAlert) alerts++;
+    }
 
     return `
       <div class="insights-stats">
