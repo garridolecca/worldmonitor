@@ -132,6 +132,16 @@ export class InsightsPanel extends Panel {
     'quarterly', 'profit', 'investor', 'ipo', 'funding', 'valuation',
   ];
 
+  // Precomputed unified keywords array to optimize the O(N) evaluations in getImportanceScore
+  private static readonly ALL_KEYWORDS = [
+    ...InsightsPanel.VIOLENCE_KEYWORDS.map(k => ({ k, type: 'violence' })),
+    ...InsightsPanel.MILITARY_KEYWORDS.map(k => ({ k, type: 'military' })),
+    ...InsightsPanel.UNREST_KEYWORDS.map(k => ({ k, type: 'unrest' })),
+    ...InsightsPanel.FLASHPOINT_KEYWORDS.map(k => ({ k, type: 'flashpoint' })),
+    ...InsightsPanel.CRISIS_KEYWORDS.map(k => ({ k, type: 'crisis' })),
+    ...InsightsPanel.DEMOTE_KEYWORDS.map(k => ({ k, type: 'demote' })),
+  ];
+
   private getImportanceScore(cluster: ClusteredEvent): number {
     let score = 0;
     const titleLower = cluster.primaryTitle.toLowerCase();
@@ -139,46 +149,62 @@ export class InsightsPanel extends Panel {
     // Source confirmation (base signal)
     score += cluster.sourceCount * 10;
 
+    // Fast-path evaluation using a single imperative loop instead of 6 filter arrays
+    let violenceMatches = 0;
+    let militaryMatches = 0;
+    let unrestMatches = 0;
+    let flashpointMatches = 0;
+    let crisisMatches = 0;
+    let demoteMatches = 0;
+
+    for (let i = 0; i < InsightsPanel.ALL_KEYWORDS.length; i++) {
+      const kw = InsightsPanel.ALL_KEYWORDS[i]!;
+      if (titleLower.includes(kw.k)) {
+        switch (kw.type) {
+          case 'violence': violenceMatches++; break;
+          case 'military': militaryMatches++; break;
+          case 'unrest': unrestMatches++; break;
+          case 'flashpoint': flashpointMatches++; break;
+          case 'crisis': crisisMatches++; break;
+          case 'demote': demoteMatches++; break;
+        }
+      }
+    }
+
     // Violence/casualty keywords: highest priority (+100 base, +25 per match)
     // "Pools of blood" type stories should always surface
-    const violenceMatches = InsightsPanel.VIOLENCE_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (violenceMatches.length > 0) {
-      score += 100 + (violenceMatches.length * 25);
+    if (violenceMatches > 0) {
+      score += 100 + (violenceMatches * 25);
     }
 
     // Military keywords: highest priority (+80 base, +20 per match)
-    const militaryMatches = InsightsPanel.MILITARY_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (militaryMatches.length > 0) {
-      score += 80 + (militaryMatches.length * 20);
+    if (militaryMatches > 0) {
+      score += 80 + (militaryMatches * 20);
     }
 
     // Civil unrest: high priority (+70 base, +18 per match)
-    const unrestMatches = InsightsPanel.UNREST_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (unrestMatches.length > 0) {
-      score += 70 + (unrestMatches.length * 18);
+    if (unrestMatches > 0) {
+      score += 70 + (unrestMatches * 18);
     }
 
     // Flashpoint keywords: high priority (+60 base, +15 per match)
-    const flashpointMatches = InsightsPanel.FLASHPOINT_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (flashpointMatches.length > 0) {
-      score += 60 + (flashpointMatches.length * 15);
+    if (flashpointMatches > 0) {
+      score += 60 + (flashpointMatches * 15);
     }
 
     // COMBO BONUS: Violence/unrest + flashpoint location = critical story
     // e.g., "Iran protests" + "blood" = huge boost
-    if ((violenceMatches.length > 0 || unrestMatches.length > 0) && flashpointMatches.length > 0) {
+    if ((violenceMatches > 0 || unrestMatches > 0) && flashpointMatches > 0) {
       score *= 1.5; // 50% bonus for flashpoint unrest
     }
 
     // Crisis keywords: moderate priority (+30 base, +10 per match)
-    const crisisMatches = InsightsPanel.CRISIS_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (crisisMatches.length > 0) {
-      score += 30 + (crisisMatches.length * 10);
+    if (crisisMatches > 0) {
+      score += 30 + (crisisMatches * 10);
     }
 
     // Demote business/tech news that happens to contain military words
-    const demoteMatches = InsightsPanel.DEMOTE_KEYWORDS.filter(kw => titleLower.includes(kw));
-    if (demoteMatches.length > 0) {
+    if (demoteMatches > 0) {
       score *= 0.3; // Heavy penalty for business context
     }
 
