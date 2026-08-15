@@ -831,14 +831,21 @@ export function getTheaterPostureSummaries(flights: MilitaryFlight[]): TheaterPo
         f.lon <= theater.bounds.east
     );
 
+    // Performance optimization: Replaced 7 redundant sequential O(N) .filter().length scans
+    // with a single O(N) imperative loop to reduce overhead on high-frequency map renders.
+    let fighters = 0, tankers = 0, awacs = 0, reconnaissance = 0, transport = 0, bombers = 0, drones = 0;
+    for (let i = 0; i < theaterFlights.length; i++) {
+      const type = theaterFlights[i]!.aircraftType;
+      if (type === 'fighter') fighters++;
+      else if (type === 'tanker') tankers++;
+      else if (type === 'awacs') awacs++;
+      else if (type === 'reconnaissance') reconnaissance++;
+      else if (type === 'transport') transport++;
+      else if (type === 'bomber') bombers++;
+      else if (type === 'drone') drones++;
+    }
     const byType = {
-      fighters: theaterFlights.filter((f) => f.aircraftType === 'fighter').length,
-      tankers: theaterFlights.filter((f) => f.aircraftType === 'tanker').length,
-      awacs: theaterFlights.filter((f) => f.aircraftType === 'awacs').length,
-      reconnaissance: theaterFlights.filter((f) => f.aircraftType === 'reconnaissance').length,
-      transport: theaterFlights.filter((f) => f.aircraftType === 'transport').length,
-      bombers: theaterFlights.filter((f) => f.aircraftType === 'bomber').length,
-      drones: theaterFlights.filter((f) => f.aircraftType === 'drone').length,
+      fighters, tankers, awacs, reconnaissance, transport, bombers, drones
     };
 
     const total = Object.values(byType).reduce((a, b) => a + b, 0);
