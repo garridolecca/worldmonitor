@@ -87,8 +87,12 @@ class FocalPointDetector {
     const mentions = new Map<string, EntityMention>();
     const index = getEntityIndex();
 
+    // Performance optimization: Pre-compute cluster map for O(1) lookups
+    // instead of O(N*M) find() scans over the clusters array within the loop
+    const clustersMap = new Map(clusters.map(c => [c.id, c]));
+
     for (const [clusterId, context] of entityContexts) {
-      const cluster = clusters.find(c => c.id === clusterId);
+      const cluster = clustersMap.get(clusterId);
       if (!cluster) continue;
 
       for (const entity of context.entities) {
